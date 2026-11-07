@@ -1,0 +1,24 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+pubspec.lock
+
+# Carpetas generadas automáticamente al armar la app
+android/
+ios/
+web/
+linux/
+macos/
+windows/
+test/widget_test.dart
+
+# Sistema / editores
+.DS_Store
+.idea/
+*.iml
+.vscode/
