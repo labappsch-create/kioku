@@ -1,0 +1,68 @@
+name: Armar app Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  armar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generar archivos de Android
+        run: |
+          flutter create --platforms=android --org com.labappsch --project-name kioku .
+          rm -f test/widget_test.dart
+          sed -i 's/android:label="kioku"/android:label="Kioku"/' android/app/src/main/AndroidManifest.xml
+
+      - name: Revisar el código
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos
+
+      - name: Usar la llave de firma de pruebas
+        run: |
+          mkdir -p ~/.android
+          cp android-signing/debug.keystore ~/.android/debug.keystore
+
+      - name: Armar el APK
+        run: |
+          flutter build apk --release --build-number=${{ github.run_number }}
+          cp build/app/outputs/flutter-apk/app-release.apk kioku.apk
+
+      - name: Guardar el APK en esta ejecución
+        uses: actions/upload-artifact@v4
+        with:
+          name: kioku-apk
+          path: kioku.apk
+
+      - name: Publicar versión descargable
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MENSAJE: ${{ github.event.head_commit.message || 'ejecución manual' }}
+          NUMERO: ${{ github.run_number }}
+        run: |
+          gh release create "prueba-$NUMERO" kioku.apk \
+            --title "Kioku - versión de prueba $NUMERO" \
+            --notes "Cambio: $MENSAJE" \
+            --latest
