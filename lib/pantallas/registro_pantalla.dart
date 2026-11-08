@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../servicios/errores.dart';
+import '../widgets/campo_clave.dart';
 
 /// Pantalla 1: crear cuenta con correo y contraseña.
 class RegistroPantalla extends StatefulWidget {
@@ -72,26 +73,18 @@ class _RegistroPantallaState extends State<RegistroPantalla> {
                       : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                CampoClave(
                   controller: _clave,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Contraseña',
-                    helperText: 'Al menos 6 caracteres',
-                    border: OutlineInputBorder(),
-                  ),
+                  etiqueta: 'Contraseña',
+                  ayuda: 'Al menos 6 caracteres',
                   validator: (v) => (v == null || v.length < 6)
                       ? 'Usa al menos 6 caracteres'
                       : null,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                CampoClave(
                   controller: _clave2,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Repite la contraseña',
-                    border: OutlineInputBorder(),
-                  ),
+                  etiqueta: 'Repite la contraseña',
                   validator: (v) =>
                       v != _clave.text ? 'Las contraseñas no coinciden' : null,
                 ),
