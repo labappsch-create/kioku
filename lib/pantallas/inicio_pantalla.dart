@@ -2,9 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../modelos/perfil.dart';
+import '../servicios/admin_servicio.dart';
+import '../servicios/competencias_servicio.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
+import 'admin/admin_pantalla.dart';
+import 'competencias/competencias_pantalla.dart';
 import 'dojos/dojos_pantalla.dart';
 import 'editar_perfil_pantalla.dart';
 import 'ver_perfil_pantalla.dart';
@@ -34,6 +38,10 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
     if (perfil == null) return null;
     // Recalcula la parte pública y revisa la respuesta del dojo.
     final (actual, aviso) = await _servicio.sincronizar(widget.uid, perfil);
+    // Pasa al historial las competencias terminadas. Si falla, no bloquea.
+    try {
+      await CompetenciasServicio().sincronizarHistorial(widget.uid);
+    } catch (_) {}
     if (aviso != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -87,6 +95,14 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
         if (perfil == null) {
           return EditarPerfilPantalla(alGuardar: _recargar);
         }
+        if (perfil.sexo == null) {
+          return EditarPerfilPantalla(
+            perfil: perfil,
+            alGuardar: _recargar,
+            aviso: 'Agregamos un dato nuevo al perfil: el sexo. '
+                'Complétalo y guarda para continuar.',
+          );
+        }
         return InicioPantalla(uid: widget.uid, perfil: perfil, alCambiar: _recargar);
       },
     );
@@ -123,6 +139,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
               uid: widget.uid, perfil: widget.perfil, alCambiar: widget.alCambiar),
           const BuscarPantalla(),
           DojosPantalla(uid: widget.uid, perfil: widget.perfil),
+          CompetenciasPantalla(uid: widget.uid, perfil: widget.perfil),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -133,6 +150,8 @@ class _InicioPantallaState extends State<InicioPantalla> {
           NavigationDestination(icon: Icon(Icons.people), label: 'Practicantes'),
           NavigationDestination(
               icon: Icon(Icons.sports_martial_arts), label: 'Dojos'),
+          NavigationDestination(
+              icon: Icon(Icons.emoji_events), label: 'Competencias'),
         ],
       ),
     );
@@ -158,6 +177,18 @@ class MiPerfilPantalla extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mi perfil'),
         actions: [
+          StreamBuilder<bool>(
+            stream: AdminServicio()
+                .esAdmin(uid, FirebaseAuth.instance.currentUser?.email),
+            builder: (context, snap) => snap.data == true
+                ? IconButton(
+                    tooltip: 'Administración',
+                    icon: const Icon(Icons.admin_panel_settings),
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const AdminPantalla())),
+                  )
+                : const SizedBox.shrink(),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),

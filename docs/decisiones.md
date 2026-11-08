@@ -38,6 +38,7 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 | Fecha de nacimiento | Sí |
 | Peso (kg) | Sí |
 | Estatura (cm) | Sí |
+| Sexo (Masculino / Femenino) | Sí |
 | Años de práctica | No |
 | Sobre mí | No |
 | Historial de competencias | Automático (vacío hasta la función 3) |
@@ -71,10 +72,11 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 
 - **Menores de 18:** solo **nombre de pila, dojo y grado**. Todo lo demás, incluida la edad, queda oculto.
 - **Adultos (18 o más):**
-  - Siempre visibles: nombre completo, edad, dojo, grado, peso, estatura, país, región y ciudad.
+  - Siempre visibles: nombre completo, edad, sexo, dojo, grado, peso, estatura, país, región y ciudad.
   - Cada uno elige si muestra: rol, años de práctica, sobre mí e historial de competencias.
 - La edad se calcula sola desde la fecha de nacimiento. Al cumplir 18 se aplican las reglas de adulto.
 - La fecha de nacimiento nunca se muestra; solo la edad.
+- **Excepción para competir:** el sensei ve edad, peso, estatura y sexo de los miembros confirmados de su dojo (incluidos menores). El organizador ve esos mismos datos solo de los inscritos en su competencia. La fecha de nacimiento sigue oculta para todos.
 
 ### Pantallas
 
@@ -135,6 +137,61 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 6. Buscar dojos: por nombre, con filtros de país, región y organización
 7. Elegir mi dojo (dentro de Editar perfil), con opción de salirse
 8. Aviso de rechazo o salida
+
+## 3. Competencias e inscripciones
+
+### Quién crea competencias
+
+- **Locales:** el sensei de un dojo, a nombre de ese dojo.
+- **Regionales, nacionales e internacionales:** solo **organizadores aprobados**.
+- El organizador aprobado es **una persona**. Con una sola aprobación puede crear todos esos niveles.
+- Aprueban los **administradores**. El administrador principal es **labappsch@gmail.com**, que puede nombrar a otros administradores.
+- Para ser organizador, la persona envía una solicitud con un mensaje corto.
+
+### Datos de la competencia (obligatorios salvo que se indique)
+
+Nombre · Nivel · Organizador (automático) · Fechas del evento · País, región, ciudad y dirección · Descripción o bases · Modalidades (kumite y/o kata) · Categorías · Fecha límite de inscripción · Costo (opcional, solo informativo; el pago es fuera de la app) · Contacto · Reglamento (opcional) · Estado (automático).
+
+- Sin cupo máximo.
+- Afiche o imagen: para después (requiere plan Blaze).
+
+### Estado
+
+- Automático según las fechas: inscripciones abiertas → cerradas → en curso → finalizada.
+- El organizador puede **cerrar las inscripciones antes**.
+
+### Categorías
+
+- El organizador crea cada categoría a mano: modalidad, sexo y rangos de edad, peso y grado.
+
+### Inscripciones
+
+- Se inscribe el propio atleta, o lo inscribe su sensei (miembros confirmados de su dojo).
+- Solo atletas con **dojo confirmado**.
+- Una categoría por modalidad (una de kumite y una de kata).
+- Quedan **Pendientes** hasta que el organizador las confirma (por ejemplo, al recibir el pago).
+- Anular: el atleta o su sensei, **solo si sigue Pendiente**. Confirmada, solo el organizador.
+- Lista de inscritos: la ven el organizador (todos) y cada sensei (los de su dojo). Los demás ven solo cuántos hay por categoría.
+
+### Historial en el perfil
+
+- Competencias en las que participó (inscripción confirmada y competencia terminada), con su categoría. En la función 4 se agrega el resultado.
+
+### Pantallas
+
+1. Solicitar ser organizador
+2. Administración (aprobar organizadores, nombrar administradores)
+3. Buscar competencias (país, región, nivel, estado)
+4. Ver competencia
+5. Crear o editar competencia
+6. Crear o editar categorías
+7. Inscribirme
+8. Inscribir a mis alumnos
+9. Inscritos (organizador)
+10. Inscritos de mi dojo (sensei)
+11. Mis inscripciones
+12. Sexo en el perfil
+13. Historial de competencias con datos
 
 ## 5. Red social (para cuando se construya)
 

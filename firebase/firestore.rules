@@ -4,12 +4,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------- Ayudas ----------
+
     function conCuenta() {
       return request.auth != null;
     }
 
     function esDueno(uid) {
       return conCuenta() && request.auth.uid == uid;
+    }
+
+    // Administrador principal: labappsch@gmail.com. Más los que nombre.
+    function esAdmin() {
+      return conCuenta()
+        && (request.auth.token.get('email', '') == 'labappsch@gmail.com'
+            || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function esOrganizador() {
+      return conCuenta()
+        && exists(/databases/$(database)/documents/organizadores/$(request.auth.uid));
     }
 
     function esEntrenador() {
@@ -21,6 +35,53 @@ service cloud.firestore {
       return conCuenta()
         && get(/databases/$(database)/documents/dojos/$(dojoId)).data.senseiUid == request.auth.uid;
     }
+
+    function esOrganizadorDe(cid) {
+      return conCuenta()
+        && get(/databases/$(database)/documents/competencias/$(cid)).data.organizadorUid == request.auth.uid;
+    }
+
+    function cambioDeConteo(cid, catId) {
+      let antes = resource.data.get('inscritos', 0);
+      let despues = request.resource.data.inscritos;
+      let iid = request.resource.data.ultimaInscripcion;
+      return conCuenta()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['inscritos', 'ultimaInscripcion'])
+        && iid is string
+        && ((despues == antes + 1
+             && !exists(/databases/$(database)/documents/inscripciones/$(iid))
+             && existsAfter(/databases/$(database)/documents/inscripciones/$(iid))
+             && getAfter(/databases/$(database)/documents/inscripciones/$(iid)).data.competenciaId == cid
+             && getAfter(/databases/$(database)/documents/inscripciones/$(iid)).data.categoriaId == catId)
+          || (despues == antes - 1
+             && exists(/databases/$(database)/documents/inscripciones/$(iid))
+             && !existsAfter(/databases/$(database)/documents/inscripciones/$(iid))
+             && get(/databases/$(database)/documents/inscripciones/$(iid)).data.competenciaId == cid
+             && get(/databases/$(database)/documents/inscripciones/$(iid)).data.categoriaId == catId));
+    }
+
+    function inscripcionValida(iid, d) {
+      let comp = get(/databases/$(database)/documents/competencias/$(d.competenciaId)).data;
+      return iid == d.competenciaId + '_' + d.atletaUid + '_' + d.modalidad
+        && d.estado == 'pendiente'
+        && d.inscritoPor == request.auth.uid
+        && (request.auth.uid == d.atletaUid || request.auth.uid == d.senseiUid)
+        // Solo atletas con dojo confirmado; el sensei es el de ese dojo.
+        && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.senseiUid == d.senseiUid
+        && get(/databases/$(database)/documents/dojos/$(d.dojoId)/miembros/$(d.atletaUid)).data.estado == 'confirmado'
+        && d.atletaNombre == get(/databases/$(database)/documents/perfiles/$(d.atletaUid)).data.nombreMostrado
+        // Inscripciones abiertas.
+        && comp.organizadorUid == d.organizadorUid
+        && comp.get('cerradaAntes', false) == false
+        && request.time < comp.cierre
+        // La categoría existe, es de esa modalidad y su conteo sube en 1.
+        && get(/databases/$(database)/documents/competencias/$(d.competenciaId)/categorias/$(d.categoriaId)).data.modalidad == d.modalidad
+        && getAfter(/databases/$(database)/documents/competencias/$(d.competenciaId)/categorias/$(d.categoriaId)).data.inscritos
+             == get(/databases/$(database)/documents/competencias/$(d.competenciaId)/categorias/$(d.categoriaId)).data.inscritos + 1;
+    }
+
+    // ---------- Perfiles ----------
 
     // Perfil completo (incluye fecha de nacimiento): solo su dueño.
     match /usuarios/{uid} {
@@ -39,9 +100,23 @@ service cloud.firestore {
             || request.resource.data.keys().hasOnly([
                  'esMenor', 'nombreMostrado', 'nombreBusqueda',
                  'gradoId', 'dojo', 'dojoId', 'dojoConfirmado', 'actualizado']));
+
+      // Competencias en las que participó. Las ven otros solo si es adulto
+      // y eligió mostrar su historial.
+      match /historial/{iid} {
+        allow read: if esDueno(uid)
+          || (conCuenta()
+              && get(/databases/$(database)/documents/perfiles/$(uid)).data.esMenor == false
+              && get(/databases/$(database)/documents/perfiles/$(uid)).data.get('mostrarHistorial', false) == true);
+        allow create, update: if esDueno(uid)
+          && get(/databases/$(database)/documents/inscripciones/$(iid)).data.atletaUid == uid
+          && get(/databases/$(database)/documents/inscripciones/$(iid)).data.estado == 'confirmada';
+        allow delete: if esDueno(uid);
+      }
     }
 
-    // Lo que ven los demás de un dojo.
+    // ---------- Dojos ----------
+
     match /dojos/{dojoId} {
       allow read: if conCuenta();
       // Solo entrenadores crean dojos, y quedan como sensei a cargo.
@@ -55,16 +130,12 @@ service cloud.firestore {
       // Solicitudes y miembros. El documento lleva el uid del practicante.
       match /miembros/{uid} {
         allow read: if conCuenta();
-        // El practicante envía su solicitud. El nombre debe ser el mismo
-        // que muestra su perfil público (así los menores salen solo con
-        // su nombre de pila).
         allow create: if esDueno(uid)
           && request.resource.data.estado == 'pendiente'
           && request.resource.data.keys().hasOnly(
                ['estado', 'nombreMostrado', 'gradoId', 'actualizado'])
           && request.resource.data.nombreMostrado
                == getAfter(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado;
-        // El sensei acepta; el practicante solo actualiza su nombre y grado.
         allow update: if (esSenseiDe(dojoId)
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['estado', 'actualizado'])
@@ -74,7 +145,16 @@ service cloud.firestore {
                  .hasOnly(['nombreMostrado', 'gradoId', 'actualizado'])
             && request.resource.data.nombreMostrado
                  == getAfter(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado);
-        // El practicante se sale, o el sensei rechaza o lo quita.
+        allow delete: if esDueno(uid) || esSenseiDe(dojoId);
+      }
+
+      // Datos para competir (edad, peso, estatura, sexo): solo el
+      // practicante y el sensei del dojo.
+      match /fichas/{uid} {
+        allow read: if esDueno(uid) || esSenseiDe(dojoId);
+        allow create, update: if esDueno(uid)
+          && request.resource.data.keys().hasOnly(
+               ['edad', 'pesoKg', 'estaturaCm', 'sexo', 'actualizado']);
         allow delete: if esDueno(uid) || esSenseiDe(dojoId);
       }
     }
@@ -87,6 +167,88 @@ service cloud.firestore {
       allow update: if conCuenta()
         && resource.data.senseiUid == request.auth.uid
         && request.resource.data.senseiUid == request.auth.uid;
+    }
+
+    // ---------- Administración ----------
+
+    match /admins/{uid} {
+      allow read: if conCuenta();
+      allow create: if esAdmin()
+        && request.resource.data.keys().hasOnly(['nombre', 'creado']);
+    }
+
+    match /organizadores/{uid} {
+      allow read: if conCuenta();
+      allow create: if esAdmin()
+        && request.resource.data.keys().hasOnly(['nombre', 'aprobado']);
+    }
+
+    match /solicitudes_organizador/{uid} {
+      allow read: if esDueno(uid) || esAdmin();
+      allow create: if esDueno(uid)
+        && request.resource.data.keys().hasOnly(['nombre', 'mensaje', 'creado'])
+        && request.resource.data.nombre
+             == get(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado;
+      allow delete: if esDueno(uid) || esAdmin();
+    }
+
+    // ---------- Competencias ----------
+
+    match /competencias/{cid} {
+      allow read: if conCuenta();
+      // Locales: el sensei del dojo. Otros niveles: organizadores aprobados.
+      allow create: if conCuenta()
+        && request.resource.data.organizadorUid == request.auth.uid
+        && request.resource.data.cerradaAntes == false
+        && ((request.resource.data.nivel == 'local'
+             && request.resource.data.dojoId is string
+             && get(/databases/$(database)/documents/dojos/$(request.resource.data.dojoId)).data.senseiUid == request.auth.uid)
+          || (request.resource.data.nivel in ['regional', 'nacional', 'internacional']
+             && esOrganizador()));
+      // Solo el organizador edita. No puede cambiar el nivel ni el dojo.
+      allow update: if conCuenta()
+        && resource.data.organizadorUid == request.auth.uid
+        && request.resource.data.organizadorUid == request.auth.uid
+        && request.resource.data.nivel == resource.data.nivel
+        && request.resource.data.get('dojoId', null) == resource.data.get('dojoId', null);
+
+      match /categorias/{catId} {
+        allow read: if conCuenta();
+        allow create: if esOrganizadorDe(cid)
+          && request.resource.data.inscritos == 0;
+        // El organizador edita sin tocar el conteo. Cualquiera ajusta el
+        // conteo en ±1 solo junto con su inscripción.
+        allow update: if (esOrganizadorDe(cid)
+            && request.resource.data.inscritos == resource.data.inscritos)
+          || cambioDeConteo(cid, catId);
+        allow delete: if esOrganizadorDe(cid) && resource.data.inscritos == 0;
+      }
+    }
+
+    // ---------- Inscripciones ----------
+
+    match /inscripciones/{iid} {
+      // Las ven el atleta, su sensei y el organizador.
+      allow read: if conCuenta()
+        && (resource == null
+            || resource.data.atletaUid == request.auth.uid
+            || resource.data.senseiUid == request.auth.uid
+            || resource.data.organizadorUid == request.auth.uid
+            || esAdmin());
+      allow create: if conCuenta() && inscripcionValida(iid, request.resource.data);
+      // Solo el organizador confirma.
+      allow update: if conCuenta()
+        && resource.data.organizadorUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado'])
+        && request.resource.data.estado == 'confirmada';
+      // El organizador siempre. El atleta o su sensei, solo si sigue pendiente.
+      allow delete: if conCuenta()
+        && (resource.data.organizadorUid == request.auth.uid
+            || ((resource.data.atletaUid == request.auth.uid
+                 || resource.data.senseiUid == request.auth.uid)
+                && resource.data.estado == 'pendiente'))
+        && getAfter(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos
+             == get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos - 1;
     }
   }
 }

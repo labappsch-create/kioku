@@ -21,6 +21,19 @@ Rol? rolDesdeTexto(Object? valor) {
   return null;
 }
 
+/// Sexo (obligatorio desde la función de competencias).
+enum Sexo { masculino, femenino }
+
+String nombreDelSexo(Sexo sexo) =>
+    sexo == Sexo.masculino ? 'Masculino' : 'Femenino';
+
+Sexo? sexoDesdeTexto(Object? valor) {
+  for (final s in Sexo.values) {
+    if (s.name == valor) return s;
+  }
+  return null;
+}
+
 /// Calcula la edad en años cumplidos a la fecha [hoy].
 int calcularEdad(DateTime nacimiento, DateTime hoy) {
   var edad = hoy.year - nacimiento.year;
@@ -56,6 +69,7 @@ class Perfil {
     required this.fechaNacimiento,
     required this.pesoKg,
     required this.estaturaCm,
+    this.sexo,
     this.dojoId,
     this.dojoEstado,
     this.rol,
@@ -77,6 +91,9 @@ class Perfil {
   final DateTime fechaNacimiento;
   final double pesoKg;
   final int estaturaCm;
+
+  /// Null solo en perfiles creados antes de agregar este dato.
+  final Sexo? sexo;
 
   /// Dojo elegido de la lista de Kioku. Null si se escribió a mano.
   final String? dojoId;
@@ -101,6 +118,15 @@ class Perfil {
   String nombrePublico(DateTime hoy) =>
       esMenorDeEdad(hoy) ? nombre : '$nombre $apellido';
 
+  /// Datos para competir que ve el sensei del dojo (ver docs/decisiones.md).
+  Map<String, Object?> fichaMapa(DateTime hoy) => {
+        'edad': calcularEdad(fechaNacimiento, hoy),
+        'pesoKg': pesoKg,
+        'estaturaCm': estaturaCm,
+        'sexo': sexo?.name,
+        'actualizado': FieldValue.serverTimestamp(),
+      };
+
   /// Copia del perfil con otro dojo.
   Perfil conDojo(String? id, String nombreDojo, String? estado) => Perfil(
         nombre: nombre,
@@ -113,6 +139,7 @@ class Perfil {
         fechaNacimiento: fechaNacimiento,
         pesoKg: pesoKg,
         estaturaCm: estaturaCm,
+        sexo: sexo,
         dojoId: id,
         dojoEstado: estado,
         rol: rol,
@@ -135,6 +162,7 @@ class Perfil {
         'fechaNacimiento': Timestamp.fromDate(fechaNacimiento),
         'pesoKg': pesoKg,
         'estaturaCm': estaturaCm,
+        'sexo': sexo?.name,
         'dojoId': dojoId,
         'dojoEstado': dojoEstado,
         'rol': rol?.name,
@@ -159,6 +187,7 @@ class Perfil {
             (m['fechaNacimiento'] as Timestamp?)?.toDate() ?? DateTime(2000),
         pesoKg: (m['pesoKg'] as num?)?.toDouble() ?? 0,
         estaturaCm: (m['estaturaCm'] as num?)?.toInt() ?? 0,
+        sexo: sexoDesdeTexto(m['sexo']),
         dojoId: m['dojoId'] as String?,
         dojoEstado: m['dojoEstado'] as String?,
         rol: rolDesdeTexto(m['rol']),
@@ -196,6 +225,7 @@ class Perfil {
       'dojoId': dojoId,
       'dojoConfirmado': false,
       'edad': calcularEdad(fechaNacimiento, hoy),
+      if (sexo != null) 'sexo': sexo!.name,
       'pesoKg': pesoKg,
       'estaturaCm': estaturaCm,
       'pais': pais,
@@ -226,6 +256,7 @@ class PerfilPublico {
   String? get dojoId => datos['dojoId'] as String?;
   bool get dojoConfirmado => datos['dojoConfirmado'] as bool? ?? false;
   int? get edad => (datos['edad'] as num?)?.toInt();
+  Sexo? get sexo => sexoDesdeTexto(datos['sexo']);
   double? get pesoKg => (datos['pesoKg'] as num?)?.toDouble();
   int? get estaturaCm => (datos['estaturaCm'] as num?)?.toInt();
   String? get pais => datos['pais'] as String?;

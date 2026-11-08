@@ -52,3 +52,11 @@ Grado? gradoPorId(String? id) {
   }
   return null;
 }
+
+/// Posición del grado en la lista (0 = sin grado). -1 si no existe.
+int indiceGrado(String? id) {
+  for (var i = 0; i < grados.length; i++) {
+    if (grados[i].id == id) return i;
+  }
+  return -1;
+}
