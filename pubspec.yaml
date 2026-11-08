@@ -2,7 +2,7 @@ name: kioku
 description: "Kioku: app para el karate Kyokushin."
 publish_to: "none"
 
-version: 0.1.0+1
+version: 0.2.0+1
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -10,6 +10,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # "any": GitHub elige la versión más nueva compatible al armar la app.
+  firebase_core: any
+  firebase_auth: any
+  cloud_firestore: any
 
 flutter:
   uses-material-design: true
