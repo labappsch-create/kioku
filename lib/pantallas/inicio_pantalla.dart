@@ -5,7 +5,9 @@ import '../modelos/perfil.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
+import 'dojos/dojos_pantalla.dart';
 import 'editar_perfil_pantalla.dart';
+import 'ver_perfil_pantalla.dart';
 
 /// Decide qué mostrar al entrar: crear el perfil o la app.
 class ComprobarPerfil extends StatefulWidget {
@@ -29,9 +31,27 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
 
   Future<Perfil?> _cargar() async {
     final perfil = await _servicio.leerMiPerfil(widget.uid);
-    // Al abrir la app se recalcula la parte pública: edad y si ya cumplió 18.
-    if (perfil != null) await _servicio.actualizarPublico(widget.uid, perfil);
-    return perfil;
+    if (perfil == null) return null;
+    // Recalcula la parte pública y revisa la respuesta del dojo.
+    final (actual, aviso) = await _servicio.sincronizar(widget.uid, perfil);
+    if (aviso != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Aviso de tu dojo'),
+            content: Text(aviso.mensaje),
+            actions: [
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Entendido')),
+            ],
+          ),
+        );
+      });
+    }
+    return actual;
   }
 
   void _recargar() => setState(() => _carga = _cargar());
@@ -102,6 +122,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
           MiPerfilPantalla(
               uid: widget.uid, perfil: widget.perfil, alCambiar: widget.alCambiar),
           const BuscarPantalla(),
+          DojosPantalla(uid: widget.uid, perfil: widget.perfil),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -109,7 +130,9 @@ class _InicioPantallaState extends State<InicioPantalla> {
         onDestinationSelected: (i) => setState(() => _pestana = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.person), label: 'Mi perfil'),
-          NavigationDestination(icon: Icon(Icons.search), label: 'Buscar'),
+          NavigationDestination(icon: Icon(Icons.people), label: 'Practicantes'),
+          NavigationDestination(
+              icon: Icon(Icons.sports_martial_arts), label: 'Dojos'),
         ],
       ),
     );
@@ -262,17 +285,10 @@ class _BuscarPantallaState extends State<BuscarPantalla> {
                     final p = lista[i];
                     return ListTile(
                       title: Text(p.nombre),
-                      subtitle: Text(p.dojo),
+                      subtitle: Text(p.dojo.isEmpty ? 'Sin dojo' : p.dojo),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => Scaffold(
-                          appBar: AppBar(title: const Text('Perfil')),
-                          body: ListView(
-                            padding: const EdgeInsets.all(16),
-                            children: [TarjetaPerfil(perfil: p)],
-                          ),
-                        ),
-                      )),
+                          builder: (_) => VerPerfilPantalla(uid: p.id))),
                     );
                   },
                 );

@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../datos/grados.dart';
 import '../datos/lugares.dart';
+import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
+import 'dojos/buscar_dojos_pantalla.dart';
 
 /// Pantalla 3: llenar o editar mi perfil.
 class EditarPerfilPantalla extends StatefulWidget {
@@ -40,6 +42,9 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
   late final TextEditingController _sobreMi;
 
   String? _gradoId;
+
+  /// Dojo elegido de la lista de Kioku. Null si se escribe a mano.
+  String? _dojoId;
   String? _pais;
   String? _region;
   DateTime? _nacimiento;
@@ -59,6 +64,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
     _nombre = TextEditingController(text: p?.nombre ?? '');
     _apellido = TextEditingController(text: p?.apellido ?? '');
     _dojo = TextEditingController(text: p?.dojo ?? '');
+    _dojoId = p?.dojoId;
     _ciudad = TextEditingController(text: p?.ciudad ?? '');
     _peso = TextEditingController(
         text: p == null ? '' : _textoPeso(p.pesoKg));
@@ -134,6 +140,8 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
       apellido: _apellido.text.trim(),
       gradoId: _gradoId!,
       dojo: _dojo.text.trim(),
+      dojoId: _dojoId,
+      dojoEstado: _dojoId == widget.perfil?.dojoId ? widget.perfil?.dojoEstado : null,
       pais: _pais!,
       region: _region!,
       ciudad: _ciudad.text.trim(),
@@ -153,7 +161,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
 
     setState(() => _guardando = true);
     try {
-      await _servicio.guardar(uid, perfil);
+      await _servicio.guardar(uid, perfil, anterior: widget.perfil);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Perfil guardado')));
@@ -175,6 +183,78 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
         if (n < min || n > max) return 'Debe estar entre $min y $max $unidad';
         return null;
       };
+
+  Future<void> _buscarDojo() async {
+    final elegido = await Navigator.of(context).push<DojoPublico>(
+      MaterialPageRoute(
+          builder: (_) => const BuscarDojosPantalla(seleccionar: true)),
+    );
+    if (elegido != null) {
+      setState(() {
+        _dojoId = elegido.id;
+        _dojo.text = elegido.nombre;
+      });
+    }
+  }
+
+  Widget _seccionDojo(InputBorder borde) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (_dojoId != null) {
+      final esElActual = _dojoId == widget.perfil?.dojoId;
+      return InputDecorator(
+        decoration: InputDecoration(labelText: 'Dojo', border: borde),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_dojo.text, style: Theme.of(context).textTheme.bodyLarge),
+            const SizedBox(height: 4),
+            if (esElActual && uid != null)
+              EstadoDojo(dojoId: _dojoId!, uid: uid)
+            else
+              const Text('Al guardar, se enviará tu solicitud al dojo.',
+                  style: TextStyle(fontSize: 12)),
+            Wrap(spacing: 8, children: [
+              TextButton(
+                  onPressed: _buscarDojo, child: const Text('Cambiar de dojo')),
+              TextButton(
+                onPressed: () => setState(() {
+                  _dojoId = null;
+                  _dojo.clear();
+                }),
+                child: Text(esElActual ? 'Salir de este dojo' : 'Quitar'),
+              ),
+            ]),
+          ],
+        ),
+      );
+    }
+    final saliendo = widget.perfil?.dojoId != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextFormField(
+          controller: _dojo,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            labelText: 'Dojo',
+            helperText: saliendo
+                ? 'Al guardar, saldrás de tu dojo anterior. Busca otro o escribe su nombre.'
+                : 'Si tu dojo está en Kioku, búscalo para enviarle tu solicitud. '
+                    'Si no, escribe su nombre: aparecerá como "Sin confirmar".',
+            helperMaxLines: 3,
+            border: borde,
+          ),
+          validator: _obligatorio,
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.search),
+          label: const Text('Buscar mi dojo en Kioku'),
+          onPressed: _buscarDojo,
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -241,18 +321,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
                 validator: (v) => v == null ? 'Elige tu grado' : null,
               ),
               espacio,
-              TextFormField(
-                controller: _dojo,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Dojo',
-                  helperText:
-                      'Aparecerá como "Sin confirmar" hasta que el dojo te acepte.',
-                  helperMaxLines: 2,
-                  border: borde,
-                ),
-                validator: _obligatorio,
-              ),
+              _seccionDojo(borde),
               espacio,
               DropdownButtonFormField<String>(
                 initialValue: _pais,

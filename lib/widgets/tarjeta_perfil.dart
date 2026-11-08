@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../datos/grados.dart';
+import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
+import '../servicios/dojos_servicio.dart';
 
 /// Muestra un perfil público: solo lo que la persona permite ver.
 class TarjetaPerfil extends StatelessWidget {
@@ -35,8 +37,12 @@ class TarjetaPerfil extends StatelessWidget {
         _Dato(
           icono: Icons.sports_martial_arts,
           titulo: 'Dojo',
-          valor: perfil.dojo,
-          extra: _EstadoDojo(confirmado: perfil.dojoConfirmado),
+          valor: perfil.dojo.isEmpty ? 'Sin dojo' : perfil.dojo,
+          extra: perfil.dojo.isEmpty
+              ? null
+              : perfil.dojoId == null
+                  ? const TextoEstadoDojo(estado: null)
+                  : EstadoDojo(dojoId: perfil.dojoId!, uid: perfil.id),
         ),
         if (perfil.rol != null)
           _Dato(icono: Icons.badge, titulo: 'Rol', valor: nombreDelRol(perfil.rol!)),
@@ -119,13 +125,31 @@ class _Dato extends StatelessWidget {
   }
 }
 
-class _EstadoDojo extends StatelessWidget {
-  const _EstadoDojo({required this.confirmado});
+/// Estado en vivo de la relación con un dojo de Kioku.
+class EstadoDojo extends StatelessWidget {
+  const EstadoDojo({super.key, required this.dojoId, required this.uid});
 
-  final bool confirmado;
+  final String dojoId;
+  final String uid;
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<String?>(
+      stream: DojosServicio().estadoMiembro(dojoId, uid),
+      builder: (context, snap) => TextoEstadoDojo(estado: snap.data),
+    );
+  }
+}
+
+class TextoEstadoDojo extends StatelessWidget {
+  const TextoEstadoDojo({super.key, required this.estado});
+
+  /// pendiente, confirmado o null (escrito a mano o sin respuesta).
+  final String? estado;
+
+  @override
+  Widget build(BuildContext context) {
+    final confirmado = estado == estadoConfirmado;
     final color = confirmado ? Colors.green.shade700 : Colors.grey.shade600;
     return Text(
       confirmado ? 'Confirmado ✓' : 'Sin confirmar',
