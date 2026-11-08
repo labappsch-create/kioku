@@ -37,6 +37,26 @@ jobs:
           sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 23)/' android/app/build.gradle.kts
           grep -n "minSdk" android/app/build.gradle.kts
 
+      - name: Descargar Gradle (con reintentos)
+        run: |
+          PROPS=android/gradle/wrapper/gradle-wrapper.properties
+          URL=$(grep '^distributionUrl=' "$PROPS" | cut -d= -f2- | sed 's/\\:/:/g')
+          ARCHIVO=$(basename "$URL")
+          OFICIAL="https://services.gradle.org/distributions/$ARCHIVO"
+          echo "Gradle: $ARCHIVO"
+          for intento in 1 2 3 4 5; do
+            for fuente in "$URL" "$OFICIAL"; do
+              echo "Intento $intento desde $fuente"
+              if curl -fsSL --retry 2 --connect-timeout 30 -o "$RUNNER_TEMP/$ARCHIVO" "$fuente"; then
+                sed -i "s#^distributionUrl=.*#distributionUrl=file\\\\://$RUNNER_TEMP/$ARCHIVO#" "$PROPS"
+                grep '^distributionUrl=' "$PROPS"
+                exit 0
+              fi
+            done
+            sleep 30
+          done
+          echo "No se pudo descargar Gradle"; exit 1
+
       - name: Revisar el código
         run: |
           flutter pub get
