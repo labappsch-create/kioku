@@ -42,21 +42,47 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
     try {
       await CompetenciasServicio().sincronizarHistorial(widget.uid);
     } catch (_) {}
-    if (aviso != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Aviso de tu dojo'),
-            content: Text(aviso.mensaje),
-            actions: [
-              FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Entendido')),
-            ],
-          ),
-        );
+    // Solicitud de organizador rechazada. Si falla, no bloquea.
+    Registro? rechazo;
+    try {
+      final s = await AdminServicio().leerMiSolicitud(widget.uid);
+      if (s != null && s.rechazada) rechazo = s;
+    } catch (_) {}
+
+    final avisos = <(String, String)>[
+      if (aviso != null) ('Aviso de tu dojo', aviso.mensaje),
+      if (rechazo != null)
+        (
+          'Solicitud de organizador',
+          'Tu solicitud para ser organizador fue rechazada.\n\n'
+              'Motivo: ${rechazo.motivo}\n\n'
+              'Puedes enviar otra desde Competencias → 🏆 → Ser organizador.'
+        ),
+    ];
+    if (avisos.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        for (final (titulo, mensaje) in avisos) {
+          if (!mounted) return;
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(titulo),
+              content: Text(mensaje),
+              actions: [
+                FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Entendido')),
+              ],
+            ),
+          );
+        }
+        // Ya vio el aviso: se borra la solicitud rechazada para que
+        // pueda enviar otra.
+        if (rechazo != null) {
+          try {
+            await AdminServicio().cancelarSolicitud(widget.uid);
+          } catch (_) {}
+        }
       });
     }
     return actual;

@@ -2,7 +2,7 @@ name: kioku
 description: "Kioku: app para el karate Kyokushin."
 publish_to: "none"
 
-version: 0.4.0+1
+version: 0.4.1+1
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

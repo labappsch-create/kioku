@@ -16,7 +16,13 @@ class Registro {
 
   String get nombre => datos['nombre'] as String? ?? '';
   String get mensaje => datos['mensaje'] as String? ?? '';
+
+  /// Solo en solicitudes: true si un administrador la rechazó.
+  bool get rechazada => datos['estado'] == estadoRechazada;
+  String get motivo => datos['motivo'] as String? ?? '';
 }
+
+const String estadoRechazada = 'rechazada';
 
 /// Administradores, organizadores aprobados y solicitudes.
 ///
@@ -66,8 +72,16 @@ class AdminServicio {
 
   Future<void> cancelarSolicitud(String uid) => _solicitudes.doc(uid).delete();
 
-  Stream<List<Registro>> solicitudes() =>
-      _solicitudes.snapshots().map(_registros);
+  /// Solo las pendientes (las rechazadas esperan a que la persona vea el aviso).
+  Stream<List<Registro>> solicitudes() => _solicitudes
+      .snapshots()
+      .map((r) => _registros(r).where((s) => !s.rechazada).toList());
+
+  /// Lee mi solicitud una vez (para el aviso al abrir la app).
+  Future<Registro?> leerMiSolicitud(String uid) async {
+    final d = await _solicitudes.doc(uid).get();
+    return d.data() == null ? null : Registro(d.id, d.data()!);
+  }
 
   Future<void> aprobar(Registro solicitud) {
     final lote = _db.batch();
@@ -79,7 +93,19 @@ class AdminServicio {
     return lote.commit();
   }
 
-  Future<void> rechazar(String uid) => _solicitudes.doc(uid).delete();
+  /// Marca la solicitud como rechazada, con el motivo. La persona verá un
+  /// aviso y, al cerrarlo, la solicitud se borra.
+  Future<void> rechazar(String uid, String motivo) =>
+      _solicitudes.doc(uid).update({
+        'estado': estadoRechazada,
+        'motivo': motivo,
+        'rechazado': FieldValue.serverTimestamp(),
+      });
+
+  Future<void> quitarOrganizador(String uid) => _organizadores.doc(uid).delete();
+
+  /// El administrador principal no está en esta lista, así que no se puede quitar.
+  Future<void> quitarAdmin(String uid) => _admins.doc(uid).delete();
 
   Stream<List<Registro>> organizadores() =>
       _organizadores.snapshots().map(_registros);

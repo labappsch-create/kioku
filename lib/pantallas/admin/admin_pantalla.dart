@@ -43,6 +43,61 @@ Future<void> _hacer(
   }
 }
 
+/// Pide el motivo del rechazo. Devuelve null si se cancela.
+Future<String?> _pedirMotivo(BuildContext context, String nombre) {
+  final texto = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: Text('Rechazar a $nombre'),
+        content: TextField(
+          controller: texto,
+          autofocus: true,
+          maxLines: 3,
+          maxLength: 300,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Motivo',
+            helperText: 'La persona lo verá en un aviso.',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: texto.text.trim().isEmpty
+                ? null
+                : () => Navigator.of(ctx).pop(texto.text.trim()),
+            child: const Text('Rechazar'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<bool> _confirmar(BuildContext context, String pregunta) async {
+  final si = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      content: Text(pregunta),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar')),
+        FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Sí, quitar')),
+      ],
+    ),
+  );
+  return si ?? false;
+}
+
 class _Solicitudes extends StatelessWidget {
   const _Solicitudes();
 
@@ -77,8 +132,13 @@ class _Solicitudes extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: () => _hacer(context,
-                            () => servicio.rechazar(s.id), 'Solicitud rechazada'),
+                        onPressed: () async {
+                          final motivo = await _pedirMotivo(context, s.nombre);
+                          if (motivo == null || !context.mounted) return;
+                          await _hacer(context,
+                              () => servicio.rechazar(s.id, motivo),
+                              'Solicitud rechazada');
+                        },
                         child: const Text('Rechazar'),
                       ),
                       const SizedBox(width: 8),
@@ -149,6 +209,27 @@ class _ListaSimple extends StatelessWidget {
                       ? Icons.emoji_events
                       : Icons.admin_panel_settings),
                   title: Text(r.nombre),
+                  trailing: IconButton(
+                    tooltip: 'Quitar',
+                    icon: const Icon(Icons.person_remove),
+                    onPressed: () async {
+                      final pregunta = organizadores
+                          ? '¿Quitar a ${r.nombre} como organizador? '
+                              'Sus competencias siguen existiendo, pero ya no podrá '
+                              'crear nuevas regionales, nacionales ni internacionales.'
+                          : '¿Quitar a ${r.nombre} como administrador?';
+                      if (!await _confirmar(context, pregunta) || !context.mounted) {
+                        return;
+                      }
+                      await _hacer(
+                        context,
+                        () => organizadores
+                            ? servicio.quitarOrganizador(r.id)
+                            : servicio.quitarAdmin(r.id),
+                        '${r.nombre} fue quitado',
+                      );
+                    },
+                  ),
                 ),
             ],
           );

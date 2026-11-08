@@ -171,16 +171,20 @@ service cloud.firestore {
 
     // ---------- Administración ----------
 
+    // El administrador principal se reconoce por su correo y no está en
+    // esta lista, así que nadie puede quitarlo.
     match /admins/{uid} {
       allow read: if conCuenta();
       allow create: if esAdmin()
         && request.resource.data.keys().hasOnly(['nombre', 'creado']);
+      allow delete: if esAdmin();
     }
 
     match /organizadores/{uid} {
       allow read: if conCuenta();
       allow create: if esAdmin()
         && request.resource.data.keys().hasOnly(['nombre', 'aprobado']);
+      allow delete: if esAdmin();
     }
 
     match /solicitudes_organizador/{uid} {
@@ -189,6 +193,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['nombre', 'mensaje', 'creado'])
         && request.resource.data.nombre
              == get(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado;
+      // Rechazo: el administrador agrega el estado y el motivo.
+      allow update: if esAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['estado', 'motivo', 'rechazado'])
+        && request.resource.data.estado == 'rechazada'
+        && request.resource.data.motivo is string
+        && request.resource.data.motivo.size() > 0;
       allow delete: if esDueno(uid) || esAdmin();
     }
 
