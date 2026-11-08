@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../servicios/errores.dart';
+import '../widgets/campo_clave.dart';
 import 'registro_pantalla.dart';
 
 /// Pantalla 2: iniciar sesión.
@@ -79,17 +80,13 @@ class _EntrarPantallaState extends State<EntrarPantalla> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  CampoClave(
                     controller: _clave,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                    ),
+                    etiqueta: 'Contraseña',
                     validator: (v) => (v == null || v.isEmpty)
                         ? 'Escribe tu contraseña'
                         : null,
-                    onFieldSubmitted: (_) => _entrar(),
+                    alEnviar: (_) => _entrar(),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
