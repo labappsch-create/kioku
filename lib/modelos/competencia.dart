@@ -36,8 +36,10 @@ String nombreModalidad(String m) => m == modalidadKata ? 'Kata' : 'Kumite';
 
 const String sexoMasculino = 'masculino';
 const String sexoFemenino = 'femenino';
-const String sexoMixto = 'mixto';
-const List<String> sexosCategoria = [sexoMasculino, sexoFemenino, sexoMixto];
+
+/// Ya no se puede elegir. Solo existe en categorías creadas antes.
+const String sexoMixtoAntiguo = 'mixto';
+const List<String> sexosCategoria = [sexoMasculino, sexoFemenino];
 
 String nombreSexoCategoria(String s) {
   switch (s) {
@@ -255,7 +257,7 @@ class Categoria {
 
   /// true si el atleta cumple sexo, edad, peso y grado de la categoría.
   bool calza(DatosAtleta a) {
-    if (sexo != sexoMixto && sexo != a.sexo) return false;
+    if (sexo != sexoMixtoAntiguo && sexo != a.sexo) return false;
     final eMin = edadMin, eMax = edadMax, pMin = pesoMin, pMax = pesoMax;
     if (eMin != null && a.edad < eMin) return false;
     if (eMax != null && a.edad > eMax) return false;
@@ -285,7 +287,7 @@ class Categoria {
   static Categoria desdeMapa(String id, Map<String, dynamic> m) => Categoria(
         id: id,
         modalidad: m['modalidad'] as String? ?? modalidadKumite,
-        sexo: m['sexo'] as String? ?? sexoMixto,
+        sexo: m['sexo'] as String? ?? sexoMixtoAntiguo,
         edadMin: (m['edadMin'] as num?)?.toInt(),
         edadMax: (m['edadMax'] as num?)?.toInt(),
         pesoMin: (m['pesoMin'] as num?)?.toDouble(),

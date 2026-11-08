@@ -93,7 +93,31 @@ class _SolicitarOrganizadorPantallaState
                     style: textos.bodyMedium,
                   ),
                   const SizedBox(height: 16),
-                  if (solicitud != null) ...[
+                  if (solicitud != null && solicitud.rechazada) ...[
+                    Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tu solicitud fue rechazada',
+                                style: textos.titleSmall),
+                            const SizedBox(height: 8),
+                            Text('Motivo: ${solicitud.motivo}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _enviando
+                          ? null
+                          : () => _hacer(
+                              () => _servicio.cancelarSolicitud(widget.uid)),
+                      child: const Text('Entendido, enviar otra solicitud'),
+                    ),
+                  ] else if (solicitud != null) ...[
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),

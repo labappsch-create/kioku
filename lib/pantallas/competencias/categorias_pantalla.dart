@@ -117,7 +117,7 @@ class _DialogoCategoria extends StatefulWidget {
 
 class _DialogoCategoriaState extends State<_DialogoCategoria> {
   late String _modalidad;
-  late String _sexo;
+  String? _sexo;
   late final TextEditingController _edadMin;
   late final TextEditingController _edadMax;
   late final TextEditingController _pesoMin;
@@ -132,7 +132,8 @@ class _DialogoCategoriaState extends State<_DialogoCategoria> {
     final c = widget.inicial;
     _modalidad = c?.modalidad ??
         (widget.modalidades.isEmpty ? modalidadKumite : widget.modalidades.first);
-    _sexo = c?.sexo ?? sexoMasculino;
+    // Una categoría antigua "Mixto" obliga a elegir de nuevo.
+    _sexo = sexosCategoria.contains(c?.sexo) ? c!.sexo : null;
     _edadMin = TextEditingController(text: c?.edadMin?.toString() ?? '');
     _edadMax = TextEditingController(text: c?.edadMax?.toString() ?? '');
     _pesoMin = TextEditingController(
@@ -161,6 +162,10 @@ class _DialogoCategoriaState extends State<_DialogoCategoria> {
       t.text.trim().isNotEmpty && _numero(t) == null;
 
   Categoria? _armar() {
+    if (_sexo == null) {
+      _error = 'Elige el sexo de la categoría.';
+      return null;
+    }
     if ([_edadMin, _edadMax, _pesoMin, _pesoMax].any(_invalido)) {
       _error = 'Revisa los números: solo dígitos (o déjalos vacíos).';
       return null;
@@ -187,7 +192,7 @@ class _DialogoCategoriaState extends State<_DialogoCategoria> {
     return Categoria(
       id: widget.inicial?.id ?? '',
       modalidad: _modalidad,
-      sexo: _sexo,
+      sexo: _sexo!,
       edadMin: eMin,
       edadMax: eMax,
       pesoMin: pMin,
@@ -276,7 +281,7 @@ class _DialogoCategoriaState extends State<_DialogoCategoria> {
                 for (final s in sexosCategoria)
                   DropdownMenuItem(value: s, child: Text(nombreSexoCategoria(s))),
               ],
-              onChanged: (v) => setState(() => _sexo = v ?? _sexo),
+              onChanged: (v) => setState(() => _sexo = v),
             ),
             espacio,
             const Text('Deja vacío lo que no tenga límite.',

@@ -147,6 +147,8 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 - El organizador aprobado es **una persona**. Con una sola aprobación puede crear todos esos niveles.
 - Aprueban los **administradores**. El administrador principal es **labappsch@gmail.com**, que puede nombrar a otros administradores.
 - Para ser organizador, la persona envía una solicitud con un mensaje corto.
+- Los administradores pueden **quitar organizadores y administradores**. Al administrador principal nunca se le puede quitar. Las competencias de un organizador quitado siguen existiendo y las sigue administrando él, pero no puede crear nuevas de nivel regional o superior.
+- Si rechazan una solicitud de organizador, el administrador escribe el **motivo** y la persona ve un **aviso** al abrir la app. Después puede enviar otra.
 
 ### Datos de la competencia (obligatorios salvo que se indique)
 
@@ -163,6 +165,9 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 ### Categorías
 
 - El organizador crea cada categoría a mano: modalidad, sexo y rangos de edad, peso y grado.
+- Sexo de la categoría: **Masculino** o **Femenino** (sin "Mixto").
+- Un rango vacío significa **"sin límite"**.
+- La edad que se usa es la del **día de la inscripción**.
 
 ### Inscripciones
 
