@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "693831196987",
+    "project_id": "kioku-5d311",
+    "storage_bucket": "kioku-5d311.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:693831196987:android:00368072018fa69371971e",
+        "android_client_info": {
+          "package_name": "com.labappsch.kioku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmpMMFA6nEiHrIQpti1C8KtN7Ob2UQoAg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
