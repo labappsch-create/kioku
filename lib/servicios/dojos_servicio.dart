@@ -23,6 +23,10 @@ class DojosServicio {
   DocumentReference<Map<String, dynamic>> miembroRef(String dojoId, String uid) =>
       _publicos.doc(dojoId).collection('miembros').doc(uid);
 
+  /// Datos para competir de un practicante. Solo los ven él y el sensei.
+  DocumentReference<Map<String, dynamic>> fichaRef(String dojoId, String uid) =>
+      _publicos.doc(dojoId).collection('fichas').doc(uid);
+
   /// Crea un dojo y devuelve su identificador.
   Future<String> crear(Dojo dojo) async {
     final ref = _publicos.doc();
@@ -117,6 +121,10 @@ class DojosServicio {
       });
 
   /// Rechazar una solicitud o quitar a un miembro.
-  Future<void> quitar(String dojoId, String uid) =>
-      miembroRef(dojoId, uid).delete();
+  Future<void> quitar(String dojoId, String uid) {
+    final lote = _db.batch();
+    lote.delete(miembroRef(dojoId, uid));
+    lote.delete(fichaRef(dojoId, uid));
+    return lote.commit();
+  }
 }

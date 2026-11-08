@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../datos/grados.dart';
+import '../modelos/competencia.dart';
 import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
+import '../servicios/competencias_servicio.dart';
 import '../servicios/dojos_servicio.dart';
 
 /// Muestra un perfil público: solo lo que la persona permite ver.
@@ -48,6 +50,8 @@ class TarjetaPerfil extends StatelessWidget {
           _Dato(icono: Icons.badge, titulo: 'Rol', valor: nombreDelRol(perfil.rol!)),
         if (perfil.edad != null)
           _Dato(icono: Icons.cake, titulo: 'Edad', valor: '${perfil.edad} años'),
+        if (perfil.sexo != null)
+          _Dato(icono: Icons.wc, titulo: 'Sexo', valor: nombreDelSexo(perfil.sexo!)),
         if (perfil.pesoKg != null)
           _Dato(
               icono: Icons.monitor_weight,
@@ -75,8 +79,7 @@ class TarjetaPerfil extends StatelessWidget {
           const SizedBox(height: 16),
           Text('Historial de competencias', style: textos.titleSmall),
           const SizedBox(height: 4),
-          Text('Aún no hay competencias registradas.',
-              style: textos.bodySmall),
+          _Historial(uid: perfil.id),
         ],
       ],
     );
@@ -121,6 +124,48 @@ class _Dato extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _Historial extends StatelessWidget {
+  const _Historial({required this.uid});
+
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return StreamBuilder<List<EntradaHistorial>>(
+      stream: CompetenciasServicio().historial(uid),
+      builder: (context, snap) {
+        final lista = snap.data;
+        if (snap.hasError || lista == null || lista.isEmpty) {
+          return Text('Aún no hay competencias registradas.',
+              style: textos.bodySmall);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final h in lista)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.emoji_events, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                          '${h.competenciaNombre} (${nombreNivel(h.nivel)}, '
+                          '${textoFecha(h.fecha)})\n${h.categoriaNombre}'),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

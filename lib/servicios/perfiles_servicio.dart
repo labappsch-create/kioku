@@ -52,7 +52,10 @@ class PerfilesServicio {
 
     final idAnterior = anterior?.dojoId;
     if (idAnterior != perfil.dojoId) {
-      if (idAnterior != null) lote.delete(_dojos.miembroRef(idAnterior, uid));
+      if (idAnterior != null) {
+        lote.delete(_dojos.miembroRef(idAnterior, uid));
+        lote.delete(_dojos.fichaRef(idAnterior, uid));
+      }
       if (perfil.dojoId != null) {
         lote.set(_dojos.miembroRef(perfil.dojoId!, uid), {
           'estado': estadoPendiente,
@@ -66,6 +69,9 @@ class PerfilesServicio {
       }
     }
 
+    if (aGuardar.dojoId != null) {
+      lote.set(_dojos.fichaRef(aGuardar.dojoId!, uid), aGuardar.fichaMapa(hoy));
+    }
     lote.set(_privado(uid), aGuardar.aMapa());
     // set sin merge: reemplaza todo, así no quedan datos que ya no se deben ver.
     lote.set(_publico(uid), aGuardar.aMapaPublico(hoy));
@@ -101,6 +107,16 @@ class PerfilesServicio {
     }
 
     await _publico(uid).set(actual.aMapaPublico(hoy));
+
+    // Mantiene al día la ficha para competir (edad, peso...). Si falla,
+    // no impide abrir la app.
+    if (miembro != null && actual.dojoId != null) {
+      try {
+        await _dojos
+            .fichaRef(actual.dojoId!, uid)
+            .set(actual.fichaMapa(hoy));
+      } catch (_) {}
+    }
 
     // Mantiene al día el nombre y el grado que ve el dojo.
     if (miembro != null && actual.dojoId != null) {

@@ -16,6 +16,7 @@ class EditarPerfilPantalla extends StatefulWidget {
     super.key,
     this.perfil,
     this.alGuardar,
+    this.aviso,
   });
 
   /// Perfil actual, o null si es la primera vez.
@@ -23,6 +24,9 @@ class EditarPerfilPantalla extends StatefulWidget {
 
   /// Se llama después de guardar con éxito.
   final VoidCallback? alGuardar;
+
+  /// Mensaje que se muestra arriba (por ejemplo, si falta un dato nuevo).
+  final String? aviso;
 
   @override
   State<EditarPerfilPantalla> createState() => _EditarPerfilPantallaState();
@@ -42,6 +46,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
   late final TextEditingController _sobreMi;
 
   String? _gradoId;
+  Sexo? _sexo;
 
   /// Dojo elegido de la lista de Kioku. Null si se escribe a mano.
   String? _dojoId;
@@ -75,6 +80,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
     _sobreMi = TextEditingController(text: p?.sobreMi ?? '');
     if (p != null) {
       _gradoId = gradoPorId(p.gradoId)?.id;
+      _sexo = p.sexo;
       _pais = paisPorNombre(p.pais)?.nombre;
       if (_pais != null && paisPorNombre(_pais)!.regiones.contains(p.region)) {
         _region = p.region;
@@ -139,6 +145,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
       nombre: _nombre.text.trim(),
       apellido: _apellido.text.trim(),
       gradoId: _gradoId!,
+      sexo: _sexo,
       dojo: _dojo.text.trim(),
       dojoId: _dojoId,
       dojoEstado: _dojoId == widget.perfil?.dojoId ? widget.perfil?.dojoEstado : null,
@@ -267,7 +274,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
       appBar: AppBar(
         title: Text(widget.perfil == null ? 'Crea tu perfil' : 'Editar perfil'),
         actions: [
-          if (widget.perfil == null)
+          if (widget.perfil == null || widget.aviso != null)
             IconButton(
               tooltip: 'Cerrar sesión',
               icon: const Icon(Icons.logout),
@@ -281,6 +288,16 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (widget.aviso != null) ...[
+                Card(
+                  color: Theme.of(context).colorScheme.tertiaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(widget.aviso!),
+                  ),
+                ),
+                espacio,
+              ],
               Text('Datos obligatorios', style: textos.titleMedium),
               espacio,
               TextFormField(
@@ -297,6 +314,19 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
                 decoration:
                     const InputDecoration(labelText: 'Apellido', border: borde),
                 validator: _obligatorio,
+              ),
+              espacio,
+              DropdownButtonFormField<Sexo>(
+                initialValue: _sexo,
+                isExpanded: true,
+                decoration:
+                    const InputDecoration(labelText: 'Sexo', border: borde),
+                items: [
+                  for (final x in Sexo.values)
+                    DropdownMenuItem(value: x, child: Text(nombreDelSexo(x))),
+                ],
+                onChanged: (v) => setState(() => _sexo = v),
+                validator: (v) => v == null ? 'Elige una opción' : null,
               ),
               espacio,
               DropdownButtonFormField<String>(
