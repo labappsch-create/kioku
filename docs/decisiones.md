@@ -13,8 +13,8 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 
 ## Orden de las funciones
 
-1. Perfiles de atletas y entrenadores ← en curso
-2. Clubes (dojos)
+1. Perfiles de atletas y entrenadores ✅ terminado (versión de prueba 14)
+2. Clubes (dojos) ← siguiente
 3. Competencias e inscripciones
 4. Rankings y resultados
 5. Red social
@@ -83,6 +83,8 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 3. Llenar o editar mi perfil
 4. Ver mi perfil (cómo me ven los demás)
 5. Buscar practicantes por nombre
+
+- Los campos de contraseña tienen un ojito para mostrarla u ocultarla (Crear cuenta e Iniciar sesión).
 
 ## 2. Dojos (para cuando se construya)
 
