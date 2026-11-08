@@ -56,6 +56,8 @@ class Perfil {
     required this.fechaNacimiento,
     required this.pesoKg,
     required this.estaturaCm,
+    this.dojoId,
+    this.dojoEstado,
     this.rol,
     this.anosPractica,
     this.sobreMi,
@@ -76,6 +78,12 @@ class Perfil {
   final double pesoKg;
   final int estaturaCm;
 
+  /// Dojo elegido de la lista de Kioku. Null si se escribió a mano.
+  final String? dojoId;
+
+  /// Último estado conocido de la solicitud: pendiente o confirmado.
+  final String? dojoEstado;
+
   // Opcionales.
   final Rol? rol;
   final int? anosPractica;
@@ -89,6 +97,33 @@ class Perfil {
 
   bool esMenorDeEdad(DateTime hoy) => calcularEdad(fechaNacimiento, hoy) < 18;
 
+  /// Nombre que ven los demás: solo el de pila si es menor.
+  String nombrePublico(DateTime hoy) =>
+      esMenorDeEdad(hoy) ? nombre : '$nombre $apellido';
+
+  /// Copia del perfil con otro dojo.
+  Perfil conDojo(String? id, String nombreDojo, String? estado) => Perfil(
+        nombre: nombre,
+        apellido: apellido,
+        gradoId: gradoId,
+        dojo: nombreDojo,
+        pais: pais,
+        region: region,
+        ciudad: ciudad,
+        fechaNacimiento: fechaNacimiento,
+        pesoKg: pesoKg,
+        estaturaCm: estaturaCm,
+        dojoId: id,
+        dojoEstado: estado,
+        rol: rol,
+        anosPractica: anosPractica,
+        sobreMi: sobreMi,
+        mostrarRol: mostrarRol,
+        mostrarAnosPractica: mostrarAnosPractica,
+        mostrarSobreMi: mostrarSobreMi,
+        mostrarHistorial: mostrarHistorial,
+      );
+
   Map<String, Object?> aMapa() => {
         'nombre': nombre,
         'apellido': apellido,
@@ -100,6 +135,8 @@ class Perfil {
         'fechaNacimiento': Timestamp.fromDate(fechaNacimiento),
         'pesoKg': pesoKg,
         'estaturaCm': estaturaCm,
+        'dojoId': dojoId,
+        'dojoEstado': dojoEstado,
         'rol': rol?.name,
         'anosPractica': anosPractica,
         'sobreMi': sobreMi,
@@ -122,6 +159,8 @@ class Perfil {
             (m['fechaNacimiento'] as Timestamp?)?.toDate() ?? DateTime(2000),
         pesoKg: (m['pesoKg'] as num?)?.toDouble() ?? 0,
         estaturaCm: (m['estaturaCm'] as num?)?.toInt() ?? 0,
+        dojoId: m['dojoId'] as String?,
+        dojoEstado: m['dojoEstado'] as String?,
         rol: rolDesdeTexto(m['rol']),
         anosPractica: (m['anosPractica'] as num?)?.toInt(),
         sobreMi: m['sobreMi'] as String?,
@@ -142,6 +181,7 @@ class Perfil {
         'nombreBusqueda': normalizarParaBuscar(nombre),
         'gradoId': gradoId,
         'dojo': dojo,
+        'dojoId': dojoId,
         'dojoConfirmado': false,
         'actualizado': FieldValue.serverTimestamp(),
       };
@@ -153,6 +193,7 @@ class Perfil {
       'nombreBusqueda': normalizarParaBuscar(completo),
       'gradoId': gradoId,
       'dojo': dojo,
+      'dojoId': dojoId,
       'dojoConfirmado': false,
       'edad': calcularEdad(fechaNacimiento, hoy),
       'pesoKg': pesoKg,
@@ -182,6 +223,7 @@ class PerfilPublico {
   String get nombre => datos['nombreMostrado'] as String? ?? '';
   String? get gradoId => datos['gradoId'] as String?;
   String get dojo => datos['dojo'] as String? ?? '';
+  String? get dojoId => datos['dojoId'] as String?;
   bool get dojoConfirmado => datos['dojoConfirmado'] as bool? ?? false;
   int? get edad => (datos['edad'] as num?)?.toInt();
   double? get pesoKg => (datos['pesoKg'] as num?)?.toDouble();

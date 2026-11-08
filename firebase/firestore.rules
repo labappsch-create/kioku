@@ -4,8 +4,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function conCuenta() {
+      return request.auth != null;
+    }
+
     function esDueno(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return conCuenta() && request.auth.uid == uid;
+    }
+
+    function esEntrenador() {
+      let yo = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+      return yo.get('rol', '') in ['entrenador', 'ambos'];
+    }
+
+    function esSenseiDe(dojoId) {
+      return conCuenta()
+        && get(/databases/$(database)/documents/dojos/$(dojoId)).data.senseiUid == request.auth.uid;
     }
 
     // Perfil completo (incluye fecha de nacimiento): solo su dueño.
@@ -13,9 +27,9 @@ service cloud.firestore {
       allow read, write: if esDueno(uid);
     }
 
-    // Lo que ven los demás. Cualquier persona con cuenta puede leerlo.
+    // Lo que ven los demás de una persona.
     match /perfiles/{uid} {
-      allow read: if request.auth != null;
+      allow read: if conCuenta();
       allow delete: if esDueno(uid);
       allow create, update: if esDueno(uid)
         // Nadie puede marcar su propio dojo como confirmado.
@@ -24,7 +38,55 @@ service cloud.firestore {
         && (request.resource.data.esMenor == false
             || request.resource.data.keys().hasOnly([
                  'esMenor', 'nombreMostrado', 'nombreBusqueda',
-                 'gradoId', 'dojo', 'dojoConfirmado', 'actualizado']));
+                 'gradoId', 'dojo', 'dojoId', 'dojoConfirmado', 'actualizado']));
+    }
+
+    // Lo que ven los demás de un dojo.
+    match /dojos/{dojoId} {
+      allow read: if conCuenta();
+      // Solo entrenadores crean dojos, y quedan como sensei a cargo.
+      allow create: if conCuenta() && esEntrenador()
+        && request.resource.data.senseiUid == request.auth.uid;
+      // Solo el sensei a cargo lo edita, y no puede pasárselo a otro.
+      allow update: if conCuenta()
+        && resource.data.senseiUid == request.auth.uid
+        && request.resource.data.senseiUid == request.auth.uid;
+
+      // Solicitudes y miembros. El documento lleva el uid del practicante.
+      match /miembros/{uid} {
+        allow read: if conCuenta();
+        // El practicante envía su solicitud. El nombre debe ser el mismo
+        // que muestra su perfil público (así los menores salen solo con
+        // su nombre de pila).
+        allow create: if esDueno(uid)
+          && request.resource.data.estado == 'pendiente'
+          && request.resource.data.keys().hasOnly(
+               ['estado', 'nombreMostrado', 'gradoId', 'actualizado'])
+          && request.resource.data.nombreMostrado
+               == getAfter(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado;
+        // El sensei acepta; el practicante solo actualiza su nombre y grado.
+        allow update: if (esSenseiDe(dojoId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['estado', 'actualizado'])
+            && request.resource.data.estado == 'confirmado')
+          || (esDueno(uid)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['nombreMostrado', 'gradoId', 'actualizado'])
+            && request.resource.data.nombreMostrado
+                 == getAfter(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado);
+        // El practicante se sale, o el sensei rechaza o lo quita.
+        allow delete: if esDueno(uid) || esSenseiDe(dojoId);
+      }
+    }
+
+    // Datos completos del dojo: solo su sensei.
+    match /dojos_privados/{dojoId} {
+      allow read: if conCuenta() && resource.data.senseiUid == request.auth.uid;
+      allow create: if conCuenta() && esEntrenador()
+        && request.resource.data.senseiUid == request.auth.uid;
+      allow update: if conCuenta()
+        && resource.data.senseiUid == request.auth.uid
+        && request.resource.data.senseiUid == request.auth.uid;
     }
   }
 }

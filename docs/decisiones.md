@@ -86,11 +86,55 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 
 - Los campos de contraseña tienen un ojito para mostrarla u ocultarla (Crear cuenta e Iniciar sesión).
 
-## 2. Dojos (para cuando se construya)
+## 2. Dojos
 
-- Un entrenador puede crear, además de su perfil personal, un **perfil de dojo**.
-- El practicante indica a qué dojo pertenece (envía una solicitud).
-- El dojo acepta o rechaza. Al aceptar, el practicante queda como miembro confirmado.
+- **Quién crea:** solo quien tenga rol "Entrenador" o "Atleta y entrenador". Un entrenador puede crear **varios** dojos (por ejemplo, uno por sede).
+- **Administrador:** solo quien lo creó (el sensei a cargo).
+- **Un practicante pertenece a un solo dojo.** Si se cambia, deja el anterior.
+
+### Datos del dojo
+
+| Dato | Obligatorio |
+|---|---|
+| Nombre del dojo | Sí |
+| País, región y ciudad (mismas listas del perfil) | Sí |
+| Dirección | Sí |
+| Organización (lista + "Otra" escrita a mano) | Sí |
+| Sensei a cargo | Automático (quien lo crea) |
+| Horarios de clases (día, inicio, término, grupo) | Sí, al menos una clase |
+| Teléfono o WhatsApp | Sí |
+| Correo | Sí |
+| Redes sociales (Instagram, Facebook) | No |
+| Descripción | Sí |
+| Lista de miembros confirmados | Automática |
+| Logo o foto | Para después (requiere plan Blaze) |
+
+- **Organizaciones:** IKO Kyokushinkaikan (Matsui), WKO Shinkyokushinkai, KWF, IFK, IKO3 (Matsushima), Kyokushin-kan (Royama), So-Kyokushin (Oishi), KWU, Independiente, Otra.
+- **Grupos de clase:** Niños, Juveniles, Adultos, Todas las edades, Competidores, Otro (escrito a mano).
+
+### Qué ven los demás
+
+- Siempre visibles: nombre, organización, país, región, ciudad y sensei a cargo.
+- El sensei elige si muestra: dirección, horarios, teléfono, correo, redes sociales, descripción y lista de miembros.
+- En la lista de miembros, los menores aparecen solo con su nombre de pila.
+
+### Relación practicante–dojo
+
+- En su perfil, el practicante **elige su dojo de la lista** (envía una solicitud) **o lo escribe a mano** (queda siempre "Sin confirmar").
+- Mientras el dojo no responde: "Sin confirmar". Si acepta: "Confirmado ✓".
+- Si el dojo **rechaza**: el dojo se borra del perfil y aparece un aviso para elegir otro.
+- Después de confirmado, **ambos pueden terminar la relación**: el practicante se sale o el sensei lo quita. El dojo se borra del perfil y aparece un aviso.
+
+### Pantallas
+
+1. Crear o editar dojo (solo entrenadores)
+2. Mis dojos
+3. Solicitudes (aceptar o rechazar)
+4. Miembros (con opción de quitar)
+5. Ver dojo
+6. Buscar dojos: por nombre, con filtros de país, región y organización
+7. Elegir mi dojo (dentro de Editar perfil), con opción de salirse
+8. Aviso de rechazo o salida
 
 ## 5. Red social (para cuando se construya)
 
@@ -98,3 +142,4 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 - Publicaciones: pensamientos (texto), fotos, videos cortos de práctica y torneos.
 - Las ven los amigos (solicitudes de amistad aceptadas).
 - Fotos y videos requieren el plan Blaze de Firebase.
+- Los **dojos también publican**. Sus publicaciones las ven quienes siguen al dojo y sus miembros.
