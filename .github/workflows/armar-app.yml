@@ -43,15 +43,24 @@ jobs:
           grep -A3 -E "^  (firebase_core|firebase_auth|cloud_firestore):" pubspec.lock | grep -E "^  [a-z_]+:|version"
           flutter analyze --no-fatal-infos
 
-      - name: Usar la llave de firma de pruebas
+      - name: Usar siempre la misma llave de firma
         run: |
-          mkdir -p ~/.android
-          cp android-signing/debug.keystore ~/.android/debug.keystore
+          python3 android-signing/configurar_firma.py
+          grep -n -A6 "signingConfigs {" android/app/build.gradle.kts
+          grep -n "signingConfig =" android/app/build.gradle.kts
 
       - name: Armar el APK
         run: |
           flutter build apk --release --build-number=${{ github.run_number }}
           cp build/app/outputs/flutter-apk/app-release.apk kioku.apk
+
+      - name: Comprobar que la firma es la correcta
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs kioku.apk | tee firma.txt
+          # Huella de android-signing/debug.keystore (SHA-256).
+          grep -qi "8a7547700701afacfc59ae62c68c8058b3ac5ef5f7024039efcb2207a6d8439f" firma.txt \
+            || { echo "La firma no coincide con android-signing/debug.keystore"; exit 1; }
 
       - name: Guardar el APK en esta ejecución
         uses: actions/upload-artifact@v4
