@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 /// Convierte errores de Firebase en mensajes simples en español.
 String mensajeDeError(Object error) {
