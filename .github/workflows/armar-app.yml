@@ -33,10 +33,14 @@ jobs:
           flutter create --platforms=android --org com.labappsch --project-name kioku .
           rm -f test/widget_test.dart
           sed -i 's/android:label="kioku"/android:label="Kioku"/' android/app/src/main/AndroidManifest.xml
+          # Firebase necesita Android 6.0 (versión 23) o superior.
+          sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 23)/' android/app/build.gradle.kts
+          grep -n "minSdk" android/app/build.gradle.kts
 
       - name: Revisar el código
         run: |
           flutter pub get
+          grep -A3 -E "^  (firebase_core|firebase_auth|cloud_firestore):" pubspec.lock | grep -E "^  [a-z_]+:|version"
           flutter analyze --no-fatal-infos
 
       - name: Usar la llave de firma de pruebas

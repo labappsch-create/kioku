@@ -1,6 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-void main() {
+import 'firebase_options.dart';
+import 'pantallas/entrar_pantalla.dart';
+import 'pantallas/inicio_pantalla.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: opcionesFirebase);
   runApp(const KiokuApp());
 }
 
@@ -13,42 +22,37 @@ class KiokuApp extends StatelessWidget {
       title: 'Kioku',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
-      home: const PantallaBienvenida(),
+      // Calendario y textos del sistema en español.
+      locale: const Locale('es'),
+      supportedLocales: const [Locale('es')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const PuertaDeEntrada(),
     );
   }
 }
 
-/// Pantalla de prueba: confirma que la app se instaló bien.
-/// Se reemplazará cuando construyamos los perfiles.
-class PantallaBienvenida extends StatelessWidget {
-  const PantallaBienvenida({super.key});
+/// Si no hay sesión, muestra "Iniciar sesión". Si la hay, entra a la app.
+class PuertaDeEntrada extends StatelessWidget {
+  const PuertaDeEntrada({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final textos = Theme.of(context).textTheme;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Kioku', style: textos.displayMedium),
-                const SizedBox(height: 8),
-                Text('Karate Kyokushin', style: textos.titleMedium),
-                const SizedBox(height: 32),
-                Text(
-                  'Versión de prueba.\n'
-                  'Si ves esta pantalla, la instalación funcionó.',
-                  textAlign: TextAlign.center,
-                  style: textos.bodyLarge,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        }
+        final usuario = snap.data;
+        if (usuario == null) return const EntrarPantalla();
+        // La key fuerza a recargar todo si cambia la cuenta.
+        return ComprobarPerfil(key: ValueKey(usuario.uid), uid: usuario.uid);
+      },
     );
   }
 }
