@@ -90,7 +90,7 @@ service cloud.firestore {
 
     // Lo que ven los demás de una persona.
     match /perfiles/{uid} {
-      allow read: if conCuenta();
+      allow read: if conCuenta(;
       allow delete: if esDueno(uid);
       allow create, update: if esDueno(uid)
         // Nadie puede marcar su propio dojo como confirmado.
@@ -118,7 +118,7 @@ service cloud.firestore {
     // ---------- Dojos ----------
 
     match /dojos/{dojoId} {
-      allow read: if conCuenta();
+      allow read: if conCuenta(;
       // Solo entrenadores crean dojos, y quedan como sensei a cargo.
       allow create: if conCuenta() && esEntrenador()
         && request.resource.data.senseiUid == request.auth.uid;
@@ -129,7 +129,7 @@ service cloud.firestore {
 
       // Solicitudes y miembros. El documento lleva el uid del practicante.
       match /miembros/{uid} {
-        allow read: if conCuenta();
+        allow read: if conCuenta(;
         allow create: if esDueno(uid)
           && request.resource.data.estado == 'pendiente'
           && request.resource.data.keys().hasOnly(
@@ -172,13 +172,13 @@ service cloud.firestore {
     // ---------- Administración ----------
 
     match /admins/{uid} {
-      allow read: if conCuenta();
+      allow read: if conCuenta(;
       allow create: if esAdmin()
         && request.resource.data.keys().hasOnly(['nombre', 'creado']);
     }
 
     match /organizadores/{uid} {
-      allow read: if conCuenta();
+      allow read: if conCuenta(;
       allow create: if esAdmin()
         && request.resource.data.keys().hasOnly(['nombre', 'aprobado']);
     }
@@ -195,7 +195,7 @@ service cloud.firestore {
     // ---------- Competencias ----------
 
     match /competencias/{cid} {
-      allow read: if conCuenta();
+      allow read: if conCuenta(;
       // Locales: el sensei del dojo. Otros niveles: organizadores aprobados.
       allow create: if conCuenta()
         && request.resource.data.organizadorUid == request.auth.uid
@@ -213,7 +213,7 @@ service cloud.firestore {
         && request.resource.data.get('dojoId', null) == resource.data.get('dojoId', null);
 
       match /categorias/{catId} {
-        allow read: if conCuenta();
+        allow read: if conCuenta(;
         allow create: if esOrganizadorDe(cid)
           && request.resource.data.inscritos == 0;
         // El organizador edita sin tocar el conteo. Cualquiera ajusta el
