@@ -322,6 +322,7 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 
 - **Colores:** Tradicional Kyokushin: fondo blanco, barras en negro, botones y detalles en rojo.
 - **Ícono:** kanji **記** (primera mitad de 記憶, "memoria") en blanco dentro de un círculo rojo de pincel, fondo negro. Generado con Grok. No usa el símbolo Kanku ni logos de organizaciones.
-- **Pantalla de bienvenida:** imagen generada con Grok (`assets/bienvenida.jpg`), tal cual, unos 2 segundos al abrir la app.
-- Antes de publicar en Google Play: revisar las condiciones de uso de Grok (xAI) y el uso de la palabra "Kyokushin" en la imagen de bienvenida.
+- **Pantalla de bienvenida:** imagen generada con Grok (`assets/bienvenida.jpg`), unos 2 segundos al abrir la app. Dice **KIOKU** y los kanjis **記憶** (sin la palabra "Kyokushin" ni 極真, para evitar problemas de marca).
+- **Créditos:** pantalla **"Acerca de Kioku"** en Mi perfil: significado del nombre, versión y "Ícono e imagen de bienvenida creados con Grok" (lo piden las condiciones de Grok).
+- Condiciones de Grok: las imágenes son del usuario y se pueden usar comercialmente, con atribución. Antes de publicar, consultar a un abogado de propiedad intelectual por el uso descriptivo de "Kyokushin" en la app.
 - Los íconos cuadrados se generan desde `assets/icono/original.jpg` con `java herramientas/Iconos.java`.

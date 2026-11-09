@@ -10,6 +10,7 @@ import '../servicios/competencias_servicio.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
+import 'acerca_pantalla.dart';
 import 'admin/admin_pantalla.dart';
 import 'competencias/competencias_pantalla.dart';
 import 'dojos/dojos_pantalla.dart';
@@ -352,6 +353,12 @@ class MiPerfilPantalla extends StatelessWidget {
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => AlumnosMenoresPantalla(uid: uid))),
                   ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.info_outline),
+                  label: const Text('Acerca de Kioku'),
+                  onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AcercaPantalla())),
+                ),
               ]),
               const SizedBox(height: 24),
               FilledButton.icon(
