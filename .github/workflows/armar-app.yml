@@ -71,6 +71,13 @@ jobs:
           sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 23)/' android/app/build.gradle.kts
           grep -n "minSdk" android/app/build.gradle.kts
 
+      - name: Ícono y pantalla de inicio
+        run: |
+          flutter pub get
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+          ls android/app/src/main/res/mipmap-anydpi-v26/ || true
+
       - name: Descargar Gradle (con reintentos)
         run: |
           PROPS=android/gradle/wrapper/gradle-wrapper.properties

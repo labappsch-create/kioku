@@ -59,6 +59,12 @@ class _EntrarPantallaState extends State<EntrarPantalla> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Center(
+                    child: ClipOval(
+                      child: Image.asset('assets/icono/icono.png', height: 120),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Text('Kioku',
                       textAlign: TextAlign.center,
                       style: textos.displayMedium),

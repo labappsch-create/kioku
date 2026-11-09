@@ -5,12 +5,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'firebase_options.dart';
 import 'servicios/sesion.dart';
+import 'tema.dart';
 import 'pantallas/entrar_pantalla.dart';
 import 'pantallas/inicio_pantalla.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: opcionesFirebase);
   runApp(const KiokuApp());
 }
 
@@ -22,7 +22,7 @@ class KiokuApp extends StatelessWidget {
     return MaterialApp(
       title: 'Kioku',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
+      theme: temaKioku(),
       // Calendario y textos del sistema en español.
       locale: const Locale('es'),
       supportedLocales: const [Locale('es')],
@@ -31,7 +31,75 @@ class KiokuApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const PuertaDeEntrada(),
+      home: const Bienvenida(),
+    );
+  }
+}
+
+/// Pantalla de bienvenida: muestra la imagen unos 2 segundos mientras se
+/// conecta con Firebase, y después entra a la app.
+class Bienvenida extends StatefulWidget {
+  const Bienvenida({super.key});
+
+  @override
+  State<Bienvenida> createState() => _BienvenidaState();
+}
+
+class _BienvenidaState extends State<Bienvenida> {
+  bool _lista = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _preparar();
+  }
+
+  Future<void> _preparar() async {
+    setState(() => _error = null);
+    try {
+      await Future.wait([
+        Firebase.initializeApp(options: opcionesFirebase),
+        Future<void>.delayed(const Duration(seconds: 2)),
+      ]);
+      if (mounted) setState(() => _lista = true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget contenido;
+    if (_lista) {
+      contenido = const PuertaDeEntrada();
+    } else {
+      contenido = Scaffold(
+        key: const ValueKey('bienvenida'),
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(children: [
+            Center(child: Image.asset('assets/bienvenida.jpg', fit: BoxFit.contain)),
+            if (_error != null)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('No se pudo conectar. Revisa tu internet.',
+                        style: TextStyle(color: Colors.white)),
+                    const SizedBox(height: 8),
+                    FilledButton(onPressed: _preparar, child: const Text('Reintentar')),
+                  ]),
+                ),
+              ),
+          ]),
+        ),
+      );
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      child: contenido,
     );
   }
 }

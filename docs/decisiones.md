@@ -5,6 +5,7 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 ## General
 
 - **Qué es:** app propia para **karate Kyokushin**, inspirada en las funciones de Fitofan, sin copiar su marca, diseño ni código.
+- **Nombre:** **Kioku** (記憶, "memoria"): para recordar el camino en el karate, quién eres y lo que lograste.
 - **Plataforma:** Android (celular), hecha con Flutter.
 - **Idioma:** español.
 - **Región:** Latinoamérica. Países incluidos (20): México, Guatemala, El Salvador, Honduras, Nicaragua, Costa Rica, Panamá, Cuba, República Dominicana, Puerto Rico, Colombia, Venezuela, Ecuador, Perú, Bolivia, Chile, Argentina, Paraguay, Uruguay y Brasil.
@@ -316,3 +317,11 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 
 - Se decidió **no hacerla por ahora**: el conocimiento de la disciplina se transmite en el dojo, de sensei a alumno.
 - Puede retomarse más adelante.
+
+## Diseño
+
+- **Colores:** Tradicional Kyokushin: fondo blanco, barras en negro, botones y detalles en rojo.
+- **Ícono:** kanji **記** (primera mitad de 記憶, "memoria") en blanco dentro de un círculo rojo de pincel, fondo negro. Generado con Grok. No usa el símbolo Kanku ni logos de organizaciones.
+- **Pantalla de bienvenida:** imagen generada con Grok (`assets/bienvenida.jpg`), tal cual, unos 2 segundos al abrir la app.
+- Antes de publicar en Google Play: revisar las condiciones de uso de Grok (xAI) y el uso de la palabra "Kyokushin" en la imagen de bienvenida.
+- Los íconos cuadrados se generan desde `assets/icono/original.jpg` con `java herramientas/Iconos.java`.
