@@ -75,6 +75,15 @@ class InscritosPantalla extends StatelessWidget {
           }
           final pendientes = lista.where((i) => !i.confirmada).length;
           final hijos = <Widget>[
+            if (competencia.cancelada || competencia.suspendida)
+              Container(
+                width: double.infinity,
+                color: Theme.of(context).colorScheme.errorContainer,
+                padding: const EdgeInsets.all(12),
+                child: Text(competencia.cancelada
+                    ? 'Torneo cancelado. Las inscripciones se mantienen como registro.'
+                    : 'Torneo suspendido. Nadie puede inscribirse ni anular hasta que se reactive.'),
+              ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
@@ -112,7 +121,10 @@ class InscritosPantalla extends StatelessWidget {
                 itemBuilder: (_) => [
                   if (comoOrganizador && !i.confirmada)
                     const PopupMenuItem(value: 'confirmar', child: Text('Confirmar')),
-                  if (comoOrganizador || !i.confirmada)
+                  if (comoOrganizador ||
+                      (competencia.situacion == situacionNormal &&
+                          (!i.confirmada ||
+                              competencia.puedeAnularConfirmada(DateTime.now()))))
                     const PopupMenuItem(value: 'anular', child: Text('Anular')),
                 ],
               ),

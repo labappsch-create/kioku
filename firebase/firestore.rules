@@ -74,6 +74,7 @@ service cloud.firestore {
         // Inscripciones abiertas.
         && comp.organizadorUid == d.organizadorUid
         && comp.get('cerradaAntes', false) == false
+        && comp.get('situacion', 'normal') == 'normal'
         && request.time < comp.cierre
         // La categoría existe, es de esa modalidad y su conteo sube en 1.
         && get(/databases/$(database)/documents/competencias/$(d.competenciaId)/categorias/$(d.categoriaId)).data.modalidad == d.modalidad
@@ -81,11 +82,24 @@ service cloud.firestore {
              == get(/databases/$(database)/documents/competencias/$(d.competenciaId)/categorias/$(d.categoriaId)).data.inscritos + 1;
     }
 
+    function puedeAnular(i) {
+      let comp = get(/databases/$(database)/documents/competencias/$(i.competenciaId)).data;
+      return comp.get('situacion', 'normal') == 'normal'
+        && (i.estado == 'pendiente'
+            || (comp.get('anularHasta', null) != null
+                && request.time < comp.anularHasta));
+    }
+
     // ---------- Perfiles ----------
 
     // Perfil completo (incluye fecha de nacimiento): solo su dueño.
     match /usuarios/{uid} {
       allow read, write: if esDueno(uid);
+
+      // Avisos de torneos que ya vio.
+      match /avisos_vistos/{cid} {
+        allow read, write: if esDueno(uid);
+      }
     }
 
     // Lo que ven los demás de una persona.
@@ -110,7 +124,8 @@ service cloud.firestore {
               && get(/databases/$(database)/documents/perfiles/$(uid)).data.get('mostrarHistorial', false) == true);
         allow create, update: if esDueno(uid)
           && get(/databases/$(database)/documents/inscripciones/$(iid)).data.atletaUid == uid
-          && get(/databases/$(database)/documents/inscripciones/$(iid)).data.estado == 'confirmada';
+          && get(/databases/$(database)/documents/inscripciones/$(iid)).data.estado == 'confirmada'
+          && get(/databases/$(database)/documents/competencias/$(get(/databases/$(database)/documents/inscripciones/$(iid)).data.competenciaId)).data.get('situacion', 'normal') != 'cancelada';
         allow delete: if esDueno(uid);
       }
     }
@@ -130,8 +145,11 @@ service cloud.firestore {
       // Solicitudes y miembros. El documento lleva el uid del practicante.
       match /miembros/{uid} {
         allow read: if conCuenta();
+        // Solicitud pendiente, o el sensei confirmado en su propio dojo.
         allow create: if esDueno(uid)
-          && request.resource.data.estado == 'pendiente'
+          && (request.resource.data.estado == 'pendiente'
+              || (request.resource.data.estado == 'confirmado'
+                  && get(/databases/$(database)/documents/dojos/$(dojoId)).data.senseiUid == uid))
           && request.resource.data.keys().hasOnly(
                ['estado', 'nombreMostrado', 'gradoId', 'actualizado'])
           && request.resource.data.nombreMostrado
@@ -217,11 +235,17 @@ service cloud.firestore {
           || (request.resource.data.nivel in ['regional', 'nacional', 'internacional']
              && esOrganizador()));
       // Solo el organizador edita. No puede cambiar el nivel ni el dojo.
+      // Cancelar es definitivo. Suspender y cancelar exigen motivo.
       allow update: if conCuenta()
         && resource.data.organizadorUid == request.auth.uid
         && request.resource.data.organizadorUid == request.auth.uid
         && request.resource.data.nivel == resource.data.nivel
-        && request.resource.data.get('dojoId', null) == resource.data.get('dojoId', null);
+        && request.resource.data.get('dojoId', null) == resource.data.get('dojoId', null)
+        && resource.data.get('situacion', 'normal') != 'cancelada'
+        && request.resource.data.get('situacion', 'normal') in ['normal', 'suspendida', 'cancelada']
+        && (request.resource.data.get('situacion', 'normal') == 'normal'
+            || (request.resource.data.get('motivo', '') is string
+                && request.resource.data.get('motivo', '').size() > 0));
 
       match /categorias/{catId} {
         allow read: if conCuenta();
@@ -252,12 +276,14 @@ service cloud.firestore {
         && resource.data.organizadorUid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado'])
         && request.resource.data.estado == 'confirmada';
-      // El organizador siempre. El atleta o su sensei, solo si sigue pendiente.
+      // El organizador siempre. El atleta o su sensei, solo con el torneo
+      // en situación normal y si sigue pendiente (o, tras reactivar un
+      // torneo suspendido, hasta el nuevo cierre aunque esté confirmada).
       allow delete: if conCuenta()
         && (resource.data.organizadorUid == request.auth.uid
             || ((resource.data.atletaUid == request.auth.uid
                  || resource.data.senseiUid == request.auth.uid)
-                && resource.data.estado == 'pendiente'))
+                && puedeAnular(resource.data)))
         && getAfter(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos
              == get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos - 1;
     }

@@ -6,6 +6,7 @@ import '../../modelos/dojo.dart';
 import '../../modelos/perfil.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/perfiles_servicio.dart';
 
 /// Pantalla 1: crear o editar un dojo (solo entrenadores).
 class EditarDojoPantalla extends StatefulWidget {
@@ -173,7 +174,8 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
     setState(() => _guardando = true);
     try {
       if (widget.dojoId == null) {
-        await _servicio.crear(dojo);
+        final id = await _servicio.crear(dojo);
+        await _unirseComoSensei(id, dojo.nombre);
       } else {
         await _servicio.actualizar(widget.dojoId!, dojo);
       }
@@ -186,6 +188,42 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+
+  /// El sensei pasa a ser miembro confirmado de su dojo nuevo. Si ya tenía
+  /// otro dojo, se le pregunta antes.
+  Future<void> _unirseComoSensei(String dojoId, String nombreDojo) async {
+    final perfiles = PerfilesServicio();
+    final perfil = await perfiles.leerMiPerfil(widget.uid);
+    if (perfil == null || !mounted) return;
+    final tieneDojo = perfil.dojoId != null || perfil.dojo.trim().isNotEmpty;
+    if (tieneDojo) {
+      final si = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('¿Pasar a tu nuevo dojo?'),
+          content: Text(
+              '¿Quieres pasar a ser miembro de "$nombreDojo"? '
+              'Saldrás de "${perfil.dojo}".\n\n'
+              'Puedes cambiarlo después en Editar perfil.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('No, seguir donde estoy')),
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Sí, pasarme')),
+          ],
+        ),
+      );
+      if (si != true) return;
+    }
+    await perfiles.guardar(
+      widget.uid,
+      perfil.conDojo(dojoId, nombreDojo, null),
+      anterior: perfil,
+    );
+    perfilCambiado.value++;
   }
 
   @override

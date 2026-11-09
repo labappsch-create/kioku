@@ -48,14 +48,18 @@ class _CompetenciasPantallaState extends State<CompetenciasPantalla> {
 
   List<Competencia> _ordenar(List<Competencia> lista) {
     final ahora = DateTime.now();
+    bool pasada(Competencia c) {
+      final e = c.estado(ahora);
+      return e == EstadoCompetencia.finalizada || e == EstadoCompetencia.cancelada;
+    }
     var r = lista;
     if (_estado != null) r = r.where((c) => c.estado(ahora) == _estado).toList();
     final proximas = r
-        .where((c) => c.estado(ahora) != EstadoCompetencia.finalizada)
+        .where((c) => !pasada(c))
         .toList()
       ..sort((a, b) => a.fechaInicio.compareTo(b.fechaInicio));
     final pasadas = r
-        .where((c) => c.estado(ahora) == EstadoCompetencia.finalizada)
+        .where(pasada)
         .toList()
       ..sort((a, b) => b.fechaInicio.compareTo(a.fechaInicio));
     return [...proximas, ...pasadas];

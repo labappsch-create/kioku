@@ -240,7 +240,9 @@ class _SeccionModalidadState extends State<_SeccionModalidad> {
                     ? 'Confirmada ✓'
                     : 'Pendiente: el organizador debe confirmarla'),
               ),
-              if (!inscripcion.confirmada)
+              if (p.competencia.situacion == situacionNormal &&
+                  (!inscripcion.confirmada ||
+                      p.competencia.puedeAnularConfirmada(DateTime.now())))
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(

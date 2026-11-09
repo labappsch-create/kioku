@@ -93,6 +93,7 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 - **Quién crea:** solo quien tenga rol "Entrenador" o "Atleta y entrenador". Un entrenador puede crear **varios** dojos (por ejemplo, uno por sede).
 - **Administrador:** solo quien lo creó (el sensei a cargo).
 - **Un practicante pertenece a un solo dojo.** Si se cambia, deja el anterior.
+- **El sensei es miembro de su dojo:** al crear un dojo, si no tiene dojo, queda como **miembro confirmado** al instante. Si ya tiene otro dojo (confirmado, sin confirmar o escrito a mano), la app le pregunta si quiere pasarse al nuevo y salir del anterior. Si elige uno de sus propios dojos en "Editar perfil", queda confirmado al instante.
 
 ### Datos del dojo
 
@@ -161,6 +162,14 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 
 - Automático según las fechas: inscripciones abiertas → cerradas → en curso → finalizada.
 - El organizador puede **cerrar las inscripciones antes**.
+
+### Cancelar o suspender
+
+- **Cancelar:** definitivo. Las inscripciones se mantienen, marcadas "Torneo cancelado", y no van al historial del perfil. El pago se resuelve fuera de la app.
+- **Suspender:** postergar. Las inscripciones se mantienen. Mientras está suspendido nadie puede inscribirse, y el atleta y su sensei no pueden anular. El organizador lo **reactiva con fechas nuevas**.
+- Al reactivar, el atleta o su sensei pueden **anular su inscripción aunque esté confirmada**, hasta el nuevo cierre de inscripciones. Después vuelve la regla normal.
+- El **motivo es obligatorio** al cancelar o suspender.
+- Avisos (cancelación, suspensión, reactivación o cambio de fecha): se ven en la competencia, en "Mis inscripciones" y **al abrir la app**, para los atletas inscritos y sus senseis. Cada aviso se muestra una sola vez.
 
 ### Categorías
 
