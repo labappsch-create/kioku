@@ -1,0 +1,90 @@
+rules_version = '2';
+
+// Reglas de las fotos de Kioku (ver docs/decisiones.md).
+// Las fotos se muestran con su enlace, que solo aparece en documentos que
+// ya protegen las reglas de Firestore. Aquí se controla quién sube o borra.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function conCuenta() {
+      return request.auth != null;
+    }
+
+    function esDueno(uid) {
+      return conCuenta() && request.auth.uid == uid;
+    }
+
+    function esAdmin() {
+      return conCuenta()
+        && (request.auth.token.get('email', '') == 'labappsch@gmail.com'
+            || firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid)));
+    }
+
+    function noSuspendido() {
+      return !firestore.exists(/databases/(default)/documents/suspendidos/$(request.auth.uid));
+    }
+
+    // Imagen de hasta 3 MB (la app las achica antes de subirlas).
+    function imagenValida() {
+      return request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function esSenseiDe(dojoId) {
+      return conCuenta()
+        && firestore.get(/databases/(default)/documents/dojos/$(dojoId)).data.senseiUid == request.auth.uid;
+    }
+
+    function esOrganizadorDe(cid) {
+      return conCuenta()
+        && firestore.get(/databases/(default)/documents/competencias/$(cid)).data.organizadorUid == request.auth.uid;
+    }
+
+    function senseiDeMenor(uid) {
+      return conCuenta()
+        && firestore.exists(/databases/(default)/documents/perfiles/$(uid))
+        && senseiDeMenorP(firestore.get(/databases/(default)/documents/perfiles/$(uid)).data);
+    }
+
+    function senseiDeMenorP(p) {
+      return p.get('esMenor', false) == true
+        && p.get('dojoId', null) is string
+        && firestore.get(/databases/(default)/documents/dojos/$(p.dojoId)).data.senseiUid == request.auth.uid;
+    }
+
+    // Fotos de publicaciones de una persona.
+    match /publicaciones/{uid}/{pid}/{archivo} {
+      allow read: if esDueno(uid);
+      allow create, update: if esDueno(uid) && imagenValida() && noSuspendido();
+      allow delete: if esDueno(uid) || senseiDeMenor(uid) || esAdmin();
+    }
+
+    // Fotos de publicaciones de un dojo.
+    match /publicaciones_dojo/{dojoId}/{pid}/{archivo} {
+      allow read: if esSenseiDe(dojoId);
+      allow create, update: if esSenseiDe(dojoId) && imagenValida() && noSuspendido();
+      allow delete: if esSenseiDe(dojoId) || esAdmin();
+    }
+
+    // Foto de perfil.
+    match /perfiles/{uid}/{archivo} {
+      allow read: if esDueno(uid);
+      allow create, update: if esDueno(uid) && imagenValida();
+      allow delete: if esDueno(uid);
+    }
+
+    // Logo del dojo.
+    match /dojos/{dojoId}/{archivo} {
+      allow read: if conCuenta();
+      allow create, update: if esSenseiDe(dojoId) && imagenValida();
+      allow delete: if esSenseiDe(dojoId);
+    }
+
+    // Afiche de la competencia.
+    match /competencias/{cid}/{archivo} {
+      allow read: if conCuenta();
+      allow create, update: if esOrganizadorDe(cid) && imagenValida();
+      allow delete: if esOrganizadorDe(cid);
+    }
+  }
+}

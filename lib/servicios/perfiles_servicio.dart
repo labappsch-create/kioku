@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
 import 'dojos_servicio.dart';
+import 'social_servicio.dart';
 
 /// Avisa a la pantalla principal que el perfil cambió desde otra pantalla
 /// (por ejemplo, al crear un dojo y pasar a ser miembro), para recargarlo.
@@ -116,6 +117,11 @@ class PerfilesServicio {
     }
 
     await _publico(uid).set(actual.aMapaPublico(hoy));
+
+    // Si cumplió 18, su foto de perfil pasa a verse como la de un adulto.
+    try {
+      await SocialServicio(db: _db).actualizarEdadFoto(uid, actual.esMenorDeEdad(hoy));
+    } catch (_) {}
 
     // Mantiene al día la ficha para competir (edad, peso...). Si falla,
     // no impide abrir la app.

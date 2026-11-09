@@ -9,6 +9,7 @@ import '../../servicios/admin_servicio.dart';
 import '../../servicios/competencias_servicio.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/fotos_servicio.dart';
 import 'ver_competencia_pantalla.dart';
 
 /// Pantalla 5: crear o editar una competencia.
@@ -133,7 +134,26 @@ class _FormularioState extends State<_Formulario> {
   bool _guardando = false;
   String? _error;
 
+  // Afiche (opcional).
+  FotoElegida? _aficheNuevo;
+  bool _quitarAfiche = false;
+
   bool get _editando => widget.competencia != null;
+
+  /// Sube el afiche nuevo (o lo quita) después de guardar.
+  Future<void> _guardarAfiche(String id) async {
+    final fotos = FotosServicio();
+    final rutaVieja = widget.competencia?.aficheRuta;
+    if (_aficheNuevo != null) {
+      final ruta = 'competencias/$id/afiche_${DateTime.now().millisecondsSinceEpoch}.${_aficheNuevo!.extension}';
+      final url = await fotos.subir(ruta, _aficheNuevo!);
+      await _servicio.actualizar(id, {'aficheUrl': url, 'aficheRuta': ruta});
+      if (rutaVieja != null) await fotos.borrar(rutaVieja);
+    } else if (_quitarAfiche && rutaVieja != null) {
+      await _servicio.actualizar(id, {'aficheUrl': null, 'aficheRuta': null});
+      await fotos.borrar(rutaVieja);
+    }
+  }
 
   @override
   void initState() {
@@ -279,10 +299,12 @@ class _FormularioState extends State<_Formulario> {
               _nombre.text.trim(), _inicio!, _fin!));
         }
         await _servicio.actualizar(antes.id, datos);
+        await _guardarAfiche(antes.id);
         mensajes.showSnackBar(const SnackBar(content: Text('Competencia guardada')));
         navegador.pop();
       } else {
         final id = await _servicio.crear(datos);
+        await _guardarAfiche(id);
         mensajes.showSnackBar(const SnackBar(
             content: Text('Competencia creada. Ahora agrega sus categorías.')));
         navegador.pushReplacement(MaterialPageRoute(
@@ -451,6 +473,24 @@ class _FormularioState extends State<_Formulario> {
               const SizedBox(height: 12),
               Text('Datos opcionales', style: textos.titleMedium),
               espacio,
+              _SeccionAfiche(
+                urlActual: _quitarAfiche ? null : widget.competencia?.aficheUrl,
+                nuevo: _aficheNuevo,
+                alElegir: () async {
+                  final f = await FotosServicio().elegirUna(lado: 1400);
+                  if (f != null) {
+                    setState(() {
+                      _aficheNuevo = f;
+                      _quitarAfiche = false;
+                    });
+                  }
+                },
+                alQuitar: () => setState(() {
+                  _aficheNuevo = null;
+                  _quitarAfiche = true;
+                }),
+              ),
+              espacio,
               TextFormField(
                 controller: _costo,
                 decoration: const InputDecoration(
@@ -488,6 +528,48 @@ class _FormularioState extends State<_Formulario> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Afiche de la competencia (opcional).
+class _SeccionAfiche extends StatelessWidget {
+  const _SeccionAfiche({
+    required this.urlActual,
+    required this.nuevo,
+    required this.alElegir,
+    required this.alQuitar,
+  });
+
+  final String? urlActual;
+  final FotoElegida? nuevo;
+  final VoidCallback alElegir;
+  final VoidCallback alQuitar;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget? vista;
+    if (nuevo != null) {
+      vista = Image.memory(nuevo!.bytes, height: 180, fit: BoxFit.contain);
+    } else if (urlActual != null) {
+      vista = Image.network(urlActual!, height: 180, fit: BoxFit.contain);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (vista != null) ...[
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: vista),
+          const SizedBox(height: 8),
+        ],
+        Wrap(spacing: 8, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.image),
+            label: Text(vista == null ? 'Agregar afiche' : 'Cambiar afiche'),
+            onPressed: alElegir,
+          ),
+          if (vista != null) TextButton(onPressed: alQuitar, child: const Text('Quitar')),
+        ]),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../modelos/dojo.dart';
 import '../../modelos/perfil.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/fotos_servicio.dart';
 import '../../servicios/perfiles_servicio.dart';
 
 /// Pantalla 1: crear o editar un dojo (solo entrenadores).
@@ -57,6 +58,10 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
 
   bool _guardando = false;
   String? _error;
+
+  // Logo (opcional).
+  FotoElegida? _logoNuevo;
+  bool _quitarLogo = false;
 
   @override
   void initState() {
@@ -169,15 +174,29 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
       mostrarRedes: _mRedes,
       mostrarDescripcion: _mDescripcion,
       mostrarMiembros: _mMiembros,
+      logoUrl: _quitarLogo ? null : widget.dojo?.logoUrl,
+      logoRuta: _quitarLogo ? null : widget.dojo?.logoRuta,
     );
 
     setState(() => _guardando = true);
     try {
+      final fotos = FotosServicio();
+      String id;
       if (widget.dojoId == null) {
-        final id = await _servicio.crear(dojo);
+        id = await _servicio.crear(dojo);
         await _unirseComoSensei(id, dojo.nombre);
       } else {
-        await _servicio.actualizar(widget.dojoId!, dojo);
+        id = widget.dojoId!;
+        await _servicio.actualizar(id, dojo);
+      }
+      final rutaVieja = widget.dojo?.logoRuta;
+      if (_logoNuevo != null) {
+        final ruta = 'dojos/$id/logo_${DateTime.now().millisecondsSinceEpoch}.${_logoNuevo!.extension}';
+        final url = await fotos.subir(ruta, _logoNuevo!);
+        await _servicio.actualizar(id, dojo.conLogo(url, ruta));
+        if (rutaVieja != null) await fotos.borrar(rutaVieja);
+      } else if (_quitarLogo && rutaVieja != null) {
+        await fotos.borrar(rutaVieja);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -242,6 +261,24 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              _SeccionLogo(
+                urlActual: _quitarLogo ? null : widget.dojo?.logoUrl,
+                nuevo: _logoNuevo,
+                alElegir: () async {
+                  final f = await FotosServicio().elegirUna(lado: 600);
+                  if (f != null) {
+                    setState(() {
+                      _logoNuevo = f;
+                      _quitarLogo = false;
+                    });
+                  }
+                },
+                alQuitar: () => setState(() {
+                  _logoNuevo = null;
+                  _quitarLogo = true;
+                }),
+              ),
+              const SizedBox(height: 16),
               Text('Datos obligatorios', style: textos.titleMedium),
               espacio,
               TextFormField(
@@ -471,6 +508,47 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
         ),
       ),
     );
+  }
+}
+
+/// Logo del dojo (opcional).
+class _SeccionLogo extends StatelessWidget {
+  const _SeccionLogo({
+    required this.urlActual,
+    required this.nuevo,
+    required this.alElegir,
+    required this.alQuitar,
+  });
+
+  final String? urlActual;
+  final FotoElegida? nuevo;
+  final VoidCallback alElegir;
+  final VoidCallback alQuitar;
+
+  @override
+  Widget build(BuildContext context) {
+    final ImageProvider? imagen = nuevo != null
+        ? MemoryImage(nuevo!.bytes)
+        : (urlActual != null ? NetworkImage(urlActual!) : null);
+    return Row(children: [
+      CircleAvatar(
+        radius: 36,
+        foregroundImage: imagen,
+        child: const Icon(Icons.sports_martial_arts, size: 32),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Wrap(spacing: 8, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.image),
+            label: Text(imagen == null ? 'Agregar logo' : 'Cambiar logo'),
+            onPressed: alElegir,
+          ),
+          if (imagen != null)
+            TextButton(onPressed: alQuitar, child: const Text('Quitar')),
+        ]),
+      ),
+    ]);
   }
 }
 

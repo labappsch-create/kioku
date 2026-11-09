@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'firebase_options.dart';
+import 'servicios/sesion.dart';
 import 'pantallas/entrar_pantalla.dart';
 import 'pantallas/inicio_pantalla.dart';
 
@@ -49,7 +50,10 @@ class PuertaDeEntrada extends StatelessWidget {
               body: Center(child: CircularProgressIndicator()));
         }
         final usuario = snap.data;
-        if (usuario == null) return const EntrarPantalla();
+        if (usuario == null) {
+          Sesion.cerrar();
+          return const EntrarPantalla();
+        }
         // La key fuerza a recargar todo si cambia la cuenta.
         return ComprobarPerfil(key: ValueKey(usuario.uid), uid: usuario.uid);
       },

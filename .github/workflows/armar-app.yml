@@ -27,12 +27,22 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Revisar reglas de Firebase
+      - name: Revisar y probar reglas de Firebase
         run: |
           npm install -g firebase-tools
-          echo '{"emulators":{"firestore":{"port":8080}}}' > firebase.json
-          firebase emulators:exec --only firestore --project demo-kioku \
-            "node firebase/revisar_reglas.js"
+          npm install --no-save @firebase/rules-unit-testing firebase
+          cat > firebase.json <<'JSON'
+          {
+            "firestore": { "rules": "firebase/firestore.rules" },
+            "storage": { "rules": "firebase/storage.rules" },
+            "emulators": {
+              "firestore": { "port": 8080 },
+              "storage": { "port": 9199 }
+            }
+          }
+          JSON
+          firebase emulators:exec --only firestore,storage --project demo-kioku \
+            "node firebase/revisar_reglas.js && node firebase/pruebas_reglas.mjs"
 
   armar:
     runs-on: ubuntu-latest

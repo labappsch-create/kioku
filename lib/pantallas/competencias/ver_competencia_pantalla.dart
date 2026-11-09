@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../modelos/competencia.dart';
 import '../../modelos/dojo.dart';
 import '../../modelos/perfil.dart';
+import '../../modelos/publicacion.dart';
 import '../../modelos/resultado.dart';
 import '../../servicios/admin_servicio.dart';
 import '../../servicios/competencias_servicio.dart';
@@ -11,6 +12,7 @@ import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
 import '../../servicios/resultados_servicio.dart';
 import '../resultados/cargar_resultados_pantalla.dart';
+import '../social/crear_publicacion_pantalla.dart';
 import '../ver_perfil_pantalla.dart';
 import 'categorias_pantalla.dart';
 import 'editar_competencia_pantalla.dart';
@@ -196,6 +198,14 @@ class _Contenido extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (c.aficheUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(c.aficheUrl!, fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(c.nombre, style: textos.headlineSmall),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -314,6 +324,26 @@ class _Contenido extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
+          if (!c.cancelada)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.share),
+                label: const Text('Compartir en el muro'),
+                onPressed: () => _abrir(
+                  context,
+                  CrearPublicacionPantalla(
+                    torneo: TorneoCompartido(
+                      id: c.id,
+                      nombre: c.nombre,
+                      fechas: c.textoFechas,
+                      lugar: c.lugar,
+                      nivel: c.nivel,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (abiertas)
             FilledButton.icon(
               icon: const Icon(Icons.how_to_reg),

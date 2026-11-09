@@ -141,6 +141,111 @@ service cloud.firestore {
             || get(/databases/$(database)/documents/podios/$(insc.competenciaId + '_' + insc.categoriaId + '_' + string(d.puesto))).data.iid == iid);
     }
 
+    // ---------- Ayudas de la red social ----------
+
+    function noSuspendido() {
+      return !exists(/databases/$(database)/documents/suspendidos/$(request.auth.uid));
+    }
+
+    function parId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function sonAmigos(a, b) {
+      return exists(/databases/$(database)/documents/amistades/$(parId(a, b)));
+    }
+
+    function existePerfil(uid) {
+      return exists(/databases/$(database)/documents/perfiles/$(uid));
+    }
+
+    function perfilDe(uid) {
+      return get(/databases/$(database)/documents/perfiles/$(uid)).data;
+    }
+
+    function miembroConfirmado(dojoId, uid) {
+      return exists(/databases/$(database)/documents/dojos/$(dojoId)/miembros/$(uid))
+        && get(/databases/$(database)/documents/dojos/$(dojoId)/miembros/$(uid)).data.estado == 'confirmado';
+    }
+
+    // El que pregunta es el sensei del dojo confirmado de un menor.
+    function senseiDeMenor(uid) {
+      return conCuenta() && existePerfil(uid) && senseiDeMenorP(uid, perfilDe(uid));
+    }
+
+    function senseiDeMenorP(uid, p) {
+      return p.get('esMenor', false) == true
+        && p.get('dojoId', null) is string
+        && get(/databases/$(database)/documents/dojos/$(p.dojoId)).data.senseiUid == request.auth.uid
+        && miembroConfirmado(p.dojoId, uid);
+    }
+
+    // Menores: solo con personas de su mismo dojo confirmado.
+    // (Usa pocas lecturas: Firebase limita cuántas puede hacer una regla.
+    // Si un perfil o un miembro no existe, la regla falla y se rechaza.)
+    function puedenSerAmigos(a, b) {
+      return puedenSerAmigosP(a, b, perfilDe(a), perfilDe(b));
+    }
+
+    function puedenSerAmigosP(a, b, pa, pb) {
+      return (pa.get('esMenor', true) == false && pb.get('esMenor', true) == false)
+        || (pa.get('dojoId', null) is string
+            && pa.get('dojoId', null) == pb.get('dojoId', null)
+            && get(/databases/$(database)/documents/dojos/$(pa.dojoId)/miembros/$(a)).data.estado == 'confirmado'
+            && get(/databases/$(database)/documents/dojos/$(pa.dojoId)/miembros/$(b)).data.estado == 'confirmado');
+    }
+
+    // Publicación de una persona: dueño, "cualquiera", amigos, su sensei
+    // (si es menor) o un administrador.
+    function puedeVerPersona(autorUid, d) {
+      return conCuenta()
+        && (request.auth.uid == autorUid
+            || d.visibilidad == 'todos'
+            || sonAmigos(request.auth.uid, autorUid)
+            || senseiDeMenor(autorUid)
+            || esAdmin());
+    }
+
+    // Publicación de un dojo: sensei, administrador, miembros, y seguidores
+    // si es para "seguidores y miembros".
+    function puedeVerDojo(dojoId, d) {
+      return conCuenta()
+        && (esSenseiDe(dojoId)
+            || esAdmin()
+            || miembroConfirmado(dojoId, request.auth.uid)
+            || (d.visibilidad == 'seguidores'
+                && exists(/databases/$(database)/documents/dojos/$(dojoId)/seguidores/$(request.auth.uid))));
+    }
+
+    function publicacionPersonaValida(autorUid, d) {
+      return d.autorUid == autorUid
+        && existePerfil(autorUid)
+        && d.autorNombre == perfilDe(autorUid).nombreMostrado
+        && d.esMenor == perfilDe(autorUid).get('esMenor', true)
+        && d.visibilidad in ['amigos', 'todos']
+        && (d.esMenor == false || d.visibilidad == 'amigos')
+        && contenidoValido(d);
+    }
+
+    function publicacionDojoValida(dojoId, d) {
+      return d.autorUid == request.auth.uid
+        && d.visibilidad in ['seguidores', 'miembros']
+        && contenidoValido(d);
+    }
+
+    function contenidoValido(d) {
+      return d.texto is string && d.texto.size() <= 3000
+        && d.fotos is list && d.fotos.size() <= 4
+        && (d.texto.size() > 0 || d.fotos.size() > 0 || d.get('competencia', null) != null);
+    }
+
+    function comentarioValido(d) {
+      return d.autorUid == request.auth.uid
+        && existePerfil(request.auth.uid)
+        && d.autorNombre == perfilDe(request.auth.uid).nombreMostrado
+        && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000;
+    }
+
     // ---------- Perfiles ----------
 
     // Perfil completo (incluye fecha de nacimiento): solo su dueño.
@@ -149,6 +254,11 @@ service cloud.firestore {
 
       // Avisos de torneos que ya vio.
       match /avisos_vistos/{cid} {
+        allow read, write: if esDueno(uid);
+      }
+
+      // Dojos que sigue.
+      match /siguiendo/{dojoId} {
         allow read, write: if esDueno(uid);
       }
     }
@@ -213,6 +323,13 @@ service cloud.firestore {
             && request.resource.data.nombreMostrado
                  == getAfter(/databases/$(database)/documents/perfiles/$(uid)).data.nombreMostrado);
         allow delete: if esDueno(uid) || esSenseiDe(dojoId);
+      }
+
+      // Seguidores del dojo.
+      match /seguidores/{uid} {
+        allow read: if esDueno(uid) || esSenseiDe(dojoId);
+        allow create: if esDueno(uid) && noSuspendido();
+        allow delete: if esDueno(uid);
       }
 
       // Datos para competir (edad, peso, estatura, sexo): solo el
@@ -344,6 +461,154 @@ service cloud.firestore {
       allow create, update: if puedeCargarResultados(request.resource.data.competenciaId)
         && podioValido(pid, request.resource.data);
       allow delete: if puedeCargarResultados(resource.data.competenciaId);
+    }
+
+    // ---------- Red social ----------
+
+    // Foto de perfil. La de un menor la ven solo sus amigos y su sensei.
+    match /fotos_perfil/{uid} {
+      allow read: if conCuenta()
+        && (resource == null
+            || resource.data.esMenor == false
+            || esDueno(uid)
+            || sonAmigos(request.auth.uid, uid)
+            || senseiDeMenor(uid)
+            || esAdmin());
+      allow create, update: if esDueno(uid)
+        && existePerfil(uid)
+        && request.resource.data.esMenor == perfilDe(uid).get('esMenor', true)
+        && request.resource.data.url is string;
+      allow delete: if esDueno(uid);
+    }
+
+    match /solicitudes_amistad/{sid} {
+      allow read: if conCuenta()
+        && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid);
+      allow create: if conCuenta() && noSuspendido()
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.para is string
+        && request.resource.data.para != request.auth.uid
+        && sid == request.auth.uid + '_' + request.resource.data.para
+        && request.resource.data.deNombre == perfilDe(request.auth.uid).nombreMostrado
+        && !sonAmigos(request.auth.uid, request.resource.data.para)
+        && !exists(/databases/$(database)/documents/bloqueos/$(request.resource.data.para + '_' + request.auth.uid))
+        && !exists(/databases/$(database)/documents/bloqueos/$(request.auth.uid + '_' + request.resource.data.para))
+        && puedenSerAmigos(request.auth.uid, request.resource.data.para);
+      allow delete: if conCuenta()
+        && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid);
+    }
+
+    // Se crea al aceptar una solicitud que la otra persona envió.
+    match /amistades/{aid} {
+      allow read: if conCuenta() && request.auth.uid in resource.data.miembros;
+      allow create: if conCuenta()
+        && request.resource.data.miembros is list
+        && request.resource.data.miembros.size() == 2
+        && request.auth.uid in request.resource.data.miembros
+        && aid == parId(request.resource.data.miembros[0], request.resource.data.miembros[1])
+        && exists(/databases/$(database)/documents/solicitudes_amistad/$(
+             (request.resource.data.miembros[0] == request.auth.uid
+                ? request.resource.data.miembros[1]
+                : request.resource.data.miembros[0]) + '_' + request.auth.uid));
+      allow delete: if conCuenta() && request.auth.uid in resource.data.miembros;
+    }
+
+    match /bloqueos/{bid} {
+      allow read: if conCuenta() && resource.data.bloqueador == request.auth.uid;
+      allow create: if conCuenta()
+        && request.resource.data.bloqueador == request.auth.uid
+        && request.resource.data.bloqueado is string
+        && bid == request.auth.uid + '_' + request.resource.data.bloqueado;
+      allow delete: if conCuenta() && resource.data.bloqueador == request.auth.uid;
+    }
+
+    // Publicaciones de una persona.
+    match /muros/{autorUid}/publicaciones/{pid} {
+      allow read: if puedeVerPersona(autorUid, resource.data);
+      allow create: if esDueno(autorUid) && noSuspendido()
+        && publicacionPersonaValida(autorUid, request.resource.data);
+      allow update: if esDueno(autorUid) && noSuspendido()
+        && publicacionPersonaValida(autorUid, request.resource.data);
+      allow delete: if esDueno(autorUid) || senseiDeMenor(autorUid) || esAdmin();
+
+      match /comentarios/{cid} {
+        allow read: if puedeVerPersona(autorUid,
+          get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data);
+        allow create: if conCuenta() && noSuspendido()
+          && puedeVerPersona(autorUid,
+               get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data)
+          && comentarioValido(request.resource.data)
+          && !exists(/databases/$(database)/documents/bloqueos/$(autorUid + '_' + request.auth.uid))
+          // Menores: solo en publicaciones de sus amigos.
+          && (perfilDe(request.auth.uid).get('esMenor', true) == false
+              || request.auth.uid == autorUid
+              || sonAmigos(request.auth.uid, autorUid));
+        allow delete: if conCuenta()
+          && (resource.data.autorUid == request.auth.uid
+              || request.auth.uid == autorUid
+              || senseiDeMenor(autorUid)
+              || esAdmin());
+      }
+
+      match /meGusta/{uid} {
+        allow read: if puedeVerPersona(autorUid,
+          get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data);
+        allow create: if esDueno(uid) && noSuspendido()
+          && puedeVerPersona(autorUid,
+               get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data);
+        allow delete: if esDueno(uid);
+      }
+    }
+
+    // Publicaciones de un dojo (las escribe su sensei).
+    match /muros_dojo/{dojoId}/publicaciones/{pid} {
+      allow read: if puedeVerDojo(dojoId, resource.data);
+      allow create, update: if esSenseiDe(dojoId) && noSuspendido()
+        && publicacionDojoValida(dojoId, request.resource.data);
+      allow delete: if esSenseiDe(dojoId) || esAdmin();
+
+      match /comentarios/{cid} {
+        allow read: if puedeVerDojo(dojoId,
+          get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data);
+        allow create: if conCuenta() && noSuspendido()
+          && puedeVerDojo(dojoId,
+               get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data)
+          && comentarioValido(request.resource.data)
+          // Menores: solo en su propio dojo.
+          && (perfilDe(request.auth.uid).get('esMenor', true) == false
+              || miembroConfirmado(dojoId, request.auth.uid));
+        allow delete: if conCuenta()
+          && (resource.data.autorUid == request.auth.uid
+              || esSenseiDe(dojoId)
+              || esAdmin());
+      }
+
+      match /meGusta/{uid} {
+        allow read: if puedeVerDojo(dojoId,
+          get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data);
+        allow create: if esDueno(uid) && noSuspendido()
+          && puedeVerDojo(dojoId,
+               get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data);
+        allow delete: if esDueno(uid);
+      }
+    }
+
+    match /denuncias/{did} {
+      allow read, delete: if esAdmin();
+      allow create: if conCuenta()
+        && request.resource.data.denuncianteUid == request.auth.uid
+        && request.resource.data.tipo in ['publicacion', 'comentario', 'perfil']
+        && request.resource.data.ruta is string
+        && request.resource.data.motivo is string
+        && request.resource.data.motivo.size() > 0
+        && request.resource.data.motivo.size() <= 500;
+    }
+
+    // Cuentas suspendidas: no pueden publicar, comentar ni enviar solicitudes.
+    match /suspendidos/{uid} {
+      allow read: if conCuenta();
+      allow create: if esAdmin() && request.resource.data.keys().hasOnly(['nombre', 'creado']);
+      allow delete: if esAdmin();
     }
   }
 }
