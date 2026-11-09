@@ -170,6 +170,20 @@ class Competencia {
     return a == b ? textoFecha(a) : '${textoFecha(a)} al ${textoFecha(b)}';
   }
 
+  /// Último momento en que el organizador puede cargar o corregir
+  /// resultados: 30 días después del último día (incluido).
+  /// Debe coincidir con firebase/firestore.rules.
+  DateTime get limiteResultados {
+    final f = soloDia(fechaFin);
+    return DateTime(f.year, f.month, f.day + 31);
+  }
+
+  bool resultadosEmpezaron(DateTime ahora) =>
+      situacion == situacionNormal && !ahora.isBefore(soloDia(fechaInicio));
+
+  bool organizadorPuedeCargar(DateTime ahora) =>
+      resultadosEmpezaron(ahora) && ahora.isBefore(limiteResultados);
+
   EstadoCompetencia estado(DateTime ahora) {
     if (cancelada) return EstadoCompetencia.cancelada;
     if (suspendida) return EstadoCompetencia.suspendida;
@@ -368,6 +382,7 @@ class Inscripcion {
   String get atletaUid => datos['atletaUid'] as String? ?? '';
   String get atletaNombre => datos['atletaNombre'] as String? ?? '';
   String? get gradoId => datos['gradoId'] as String?;
+  String get dojoId => datos['dojoId'] as String? ?? '';
   String get dojoNombre => datos['dojoNombre'] as String? ?? '';
   int get edad => (datos['edad'] as num?)?.toInt() ?? 0;
   double get pesoKg => (datos['pesoKg'] as num?)?.toDouble() ?? 0;
@@ -395,4 +410,7 @@ class EntradaHistorial {
   String get categoriaNombre => datos['categoriaNombre'] as String? ?? '';
   String get nivel => datos['nivel'] as String? ?? nivelLocal;
   DateTime get fecha => _fecha(datos['fecha']);
+
+  /// 1 a 4, o null si no quedó en el podio.
+  int? get puesto => (datos['puesto'] as num?)?.toInt();
 }

@@ -90,6 +90,57 @@ service cloud.firestore {
                 && request.time < comp.anularHasta));
     }
 
+    // Grupo de edad del ranking. Debe coincidir con lib/datos/puntos.dart.
+    function grupoDe(edad) {
+      return edad <= 11 ? 'infantil'
+        : (edad <= 17 ? 'juvenil'
+        : (edad <= 39 ? 'adultos' : 'senior'));
+    }
+
+    // Organizador: desde el primer día hasta 30 días después del último.
+    // Administrador: desde el primer día, sin límite.
+    function puedeCargarResultados(cid) {
+      let comp = get(/databases/$(database)/documents/competencias/$(cid)).data;
+      return conCuenta()
+        && comp.get('situacion', 'normal') == 'normal'
+        && request.time >= comp.fechaInicio
+        && ((comp.organizadorUid == request.auth.uid
+             && request.time < comp.fechaFin + duration.value(31, 'd'))
+            || esAdmin());
+    }
+
+    function podioValido(pid, d) {
+      let insc = get(/databases/$(database)/documents/inscripciones/$(d.iid)).data;
+      let comp = get(/databases/$(database)/documents/competencias/$(d.competenciaId)).data;
+      return d.puesto in [1, 2, 3, 4]
+        && pid == d.competenciaId + '_' + d.categoriaId + '_' + string(d.puesto)
+        && insc.estado == 'confirmada'
+        && insc.competenciaId == d.competenciaId
+        && insc.categoriaId == d.categoriaId
+        && insc.atletaUid == d.atletaUid
+        && insc.atletaNombre == d.atletaNombre
+        && insc.dojoId == d.dojoId
+        && insc.dojoNombre == d.dojoNombre
+        && insc.modalidad == d.modalidad
+        && insc.sexo == d.sexo
+        && d.grupo == grupoDe(insc.edad)
+        && d.nivel == comp.nivel
+        && d.pais == comp.pais
+        && d.region == comp.region
+        && d.anio == comp.fechaInicio.year();
+    }
+
+    // El historial lo escribe el propio atleta: solo competencias
+    // confirmadas, no canceladas, y el puesto debe existir en los podios.
+    function historialValido(uid, iid, d) {
+      let insc = get(/databases/$(database)/documents/inscripciones/$(iid)).data;
+      return insc.atletaUid == uid
+        && insc.estado == 'confirmada'
+        && get(/databases/$(database)/documents/competencias/$(insc.competenciaId)).data.get('situacion', 'normal') != 'cancelada'
+        && (!('puesto' in d)
+            || get(/databases/$(database)/documents/podios/$(insc.competenciaId + '_' + insc.categoriaId + '_' + string(d.puesto))).data.iid == iid);
+    }
+
     // ---------- Perfiles ----------
 
     // Perfil completo (incluye fecha de nacimiento): solo su dueño.
@@ -123,9 +174,7 @@ service cloud.firestore {
               && get(/databases/$(database)/documents/perfiles/$(uid)).data.esMenor == false
               && get(/databases/$(database)/documents/perfiles/$(uid)).data.get('mostrarHistorial', false) == true);
         allow create, update: if esDueno(uid)
-          && get(/databases/$(database)/documents/inscripciones/$(iid)).data.atletaUid == uid
-          && get(/databases/$(database)/documents/inscripciones/$(iid)).data.estado == 'confirmada'
-          && get(/databases/$(database)/documents/competencias/$(get(/databases/$(database)/documents/inscripciones/$(iid)).data.competenciaId)).data.get('situacion', 'normal') != 'cancelada';
+          && historialValido(uid, iid, request.resource.data);
         allow delete: if esDueno(uid);
       }
     }
@@ -286,6 +335,15 @@ service cloud.firestore {
                 && puedeAnular(resource.data)))
         && getAfter(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos
              == get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos - 1;
+    }
+
+    // ---------- Resultados ----------
+
+    match /podios/{pid} {
+      allow read: if conCuenta();
+      allow create, update: if puedeCargarResultados(request.resource.data.competenciaId)
+        && podioValido(pid, request.resource.data);
+      allow delete: if puedeCargarResultados(resource.data.competenciaId);
     }
   }
 }

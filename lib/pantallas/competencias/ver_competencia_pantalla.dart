@@ -1,11 +1,17 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../modelos/competencia.dart';
 import '../../modelos/dojo.dart';
 import '../../modelos/perfil.dart';
+import '../../modelos/resultado.dart';
+import '../../servicios/admin_servicio.dart';
 import '../../servicios/competencias_servicio.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/resultados_servicio.dart';
+import '../resultados/cargar_resultados_pantalla.dart';
+import '../ver_perfil_pantalla.dart';
 import 'categorias_pantalla.dart';
 import 'editar_competencia_pantalla.dart';
 import 'inscribir_alumnos_pantalla.dart';
@@ -226,6 +232,17 @@ class _Contenido extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text('Eres el organizador de esta competencia.'),
+                    if (c.organizadorPuedeCargar(DateTime.now())) ...[
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.emoji_events),
+                        label: const Text('Cargar resultados'),
+                        onPressed: () => _abrir(
+                            context,
+                            CargarResultadosPantalla(
+                                competencia: c, uid: uid, comoAdmin: false)),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     FilledButton.icon(
                       icon: const Icon(Icons.groups),
@@ -361,6 +378,26 @@ class _Contenido extends StatelessWidget {
             const SizedBox(height: 4),
             SelectableText(c.reglamento!),
           ],
+          if (c.resultadosEmpezaron(DateTime.now()) &&
+              !c.organizadorPuedeCargar(DateTime.now()))
+            StreamBuilder<bool>(
+              stream: AdminServicio()
+                  .esAdmin(uid, FirebaseAuth.instance.currentUser?.email),
+              builder: (context, snap) => snap.data == true
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.admin_panel_settings),
+                        label: const Text('Corregir resultados (administrador)'),
+                        onPressed: () => _abrir(
+                            context,
+                            CargarResultadosPantalla(
+                                competencia: c, uid: uid, comoAdmin: true)),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          _Resultados(competencia: c),
           const SizedBox(height: 16),
           Text('Categorías', style: textos.titleSmall),
           const SizedBox(height: 4),
@@ -388,6 +425,56 @@ class _Contenido extends StatelessWidget {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+}
+
+/// Pantalla 2: podio de cada categoría, visible para todos.
+class _Resultados extends StatelessWidget {
+  const _Resultados({required this.competencia});
+
+  final Competencia competencia;
+
+  @override
+  Widget build(BuildContext context) {
+    if (competencia.cancelada) return const SizedBox.shrink();
+    final textos = Theme.of(context).textTheme;
+    return StreamBuilder<List<Podio>>(
+      stream: ResultadosServicio().deCompetencia(competencia.id),
+      builder: (context, snap) {
+        final podios = snap.data;
+        if (snap.hasError || podios == null || podios.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final porCategoria = <String, List<Podio>>{};
+        for (final p in podios) {
+          porCategoria.putIfAbsent(p.categoriaNombre, () => []).add(p);
+        }
+        final nombres = porCategoria.keys.toList()..sort();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Text('Resultados', style: textos.titleSmall),
+            for (final n in nombres) ...[
+              const SizedBox(height: 8),
+              Text(n, style: textos.labelLarge),
+              for (final p in porCategoria[n]!
+                ..sort((a, b) => a.puesto.compareTo(b.puesto)))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(radius: 14, child: Text('${p.puesto}')),
+                  title: Text(p.atletaNombre),
+                  subtitle: Text(p.dojoNombre),
+                  trailing: Text('${p.puntos} pts'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => VerPerfilPantalla(uid: p.atletaUid))),
+                ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

@@ -158,7 +158,9 @@ class _Historial extends StatelessWidget {
                     Expanded(
                       child: Text(
                           '${h.competenciaNombre} (${nombreNivel(h.nivel)}, '
-                          '${textoFecha(h.fecha)})\n${h.categoriaNombre}'),
+                          '${textoFecha(h.fecha)})\n'
+                          '${h.puesto == null ? '' : '${h.puesto}.º lugar · '}'
+                          '${h.categoriaNombre}'),
                     ),
                   ],
                 ),
