@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../modelos/competencia.dart';
+import 'resultados_servicio.dart';
 
 /// Guarda y lee competencias, categorías e inscripciones.
 ///
@@ -51,15 +52,18 @@ class CompetenciasServicio {
   static String _nuevoAviso() =>
       DateTime.now().millisecondsSinceEpoch.toString();
 
-  /// Cancelar: definitivo.
-  Future<void> cancelar(Competencia c, String motivo) =>
-      _comps.doc(c.id).update({
+  /// Cancelar: definitivo. Primero se borran sus resultados, para que no
+  /// cuenten en los rankings.
+  Future<void> cancelar(Competencia c, String motivo) async {
+    await ResultadosServicio(db: _db).borrarDeCompetencia(c.id);
+    await _comps.doc(c.id).update({
         'situacion': situacionCancelada,
         'motivo': motivo,
         'avisoId': _nuevoAviso(),
         'avisoTexto': 'El torneo "${c.nombre}" fue cancelado.\nMotivo: $motivo',
         'actualizado': FieldValue.serverTimestamp(),
       });
+  }
 
   /// Suspender: queda en pausa hasta que el organizador lo reactive.
   Future<void> suspender(Competencia c, String motivo) =>
@@ -305,6 +309,10 @@ class CompetenciasServicio {
         .where('atletaUid', isEqualTo: uid)
         .where('estado', isEqualTo: inscripcionConfirmada)
         .get();
+    Map<String, int> puestos = {};
+    try {
+      puestos = await ResultadosServicio(db: _db).puestosDeAtleta(uid);
+    } catch (_) {}
     for (final d in r.docs) {
       final i = Inscripcion(d.id, d.data());
       // Se usan las fechas actuales de la competencia (pudieron cambiar).
@@ -318,6 +326,7 @@ class CompetenciasServicio {
         'categoriaNombre': i.categoriaNombre,
         'nivel': i.nivel,
         'fecha': Timestamp.fromDate(c.fechaInicio),
+        if (puestos[i.id] != null) 'puesto': puestos[i.id],
       });
     }
   }

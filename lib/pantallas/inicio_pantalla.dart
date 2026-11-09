@@ -11,6 +11,7 @@ import '../widgets/tarjeta_perfil.dart';
 import 'admin/admin_pantalla.dart';
 import 'competencias/competencias_pantalla.dart';
 import 'dojos/dojos_pantalla.dart';
+import 'rankings/rankings_pantalla.dart';
 import 'editar_perfil_pantalla.dart';
 import 'ver_perfil_pantalla.dart';
 
@@ -188,6 +189,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
           const BuscarPantalla(),
           DojosPantalla(uid: widget.uid, perfil: widget.perfil),
           CompetenciasPantalla(uid: widget.uid, perfil: widget.perfil),
+          RankingsPantalla(paisInicial: widget.perfil.pais),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -200,6 +202,8 @@ class _InicioPantallaState extends State<InicioPantalla> {
               icon: Icon(Icons.sports_martial_arts), label: 'Dojos'),
           NavigationDestination(
               icon: Icon(Icons.emoji_events), label: 'Competencias'),
+          NavigationDestination(
+              icon: Icon(Icons.leaderboard), label: 'Rankings'),
         ],
       ),
     );

@@ -207,6 +207,52 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 12. Sexo en el perfil
 13. Historial de competencias con datos
 
+## 4. Rankings y resultados
+
+### Resultados
+
+- Por categoría se registran **1.º, 2.º, 3.º y 4.º lugar**.
+- Los carga **solo el organizador**, eligiendo de la lista de **inscritos confirmados** de esa categoría.
+- Plazo: desde el **primer día del torneo** hasta **30 días después del último día**. Después solo un **administrador** puede corregirlos.
+- Los resultados de cada competencia los ve **cualquier persona con cuenta**. Los menores aparecen con nombre de pila y dojo.
+- Si el torneo se cancela, sus resultados se borran.
+
+### Rankings
+
+- Se ordenan **por puntos**. Los puntos dependen del puesto y del nivel del torneo:
+
+| Puesto | Local | Regional | Nacional | Internacional |
+|---|---|---|---|---|
+| 1.º | 10 | 20 | 40 | 80 |
+| 2.º | 7 | 14 | 28 | 56 |
+| 3.º | 5 | 10 | 20 | 40 |
+| 4.º | 3 | 6 | 12 | 24 |
+
+- Si se cambia la tabla, los rankings se recalculan solos.
+- Período: **año calendario** (cada 1 de enero se parte de cero; los años anteriores se pueden consultar).
+- Alcance: **Latinoamérica, país y región**, según **dónde se hizo el torneo**.
+- **Ranking de atletas:** separado por **modalidad, sexo y grupo de edad**. El grupo se toma de la **edad al inscribirse** en ese torneo.
+
+| Grupo | Edades |
+|---|---|
+| Infantil | hasta 11 años |
+| Juvenil | 12 a 17 años |
+| Adultos | 18 a 39 años |
+| Senior | 40 años o más |
+
+- **Ranking de dojos:** total general y separado por modalidad (kumite y kata). Los puntos van al **dojo con que el atleta se inscribió**.
+- Menores: aparecen con **nombre de pila y dojo**.
+- Empates: gana quien tiene más 1.º lugares; si siguen empatados, más 2.º, y así.
+
+### Pantallas
+
+1. Cargar resultados (organizador)
+2. Resultados dentro de la competencia (podio por categoría)
+3. Corregir resultados (administradores, después del plazo)
+4. Rankings (pestaña nueva, con filtros)
+5. Tabla de puntos
+6. Historial del perfil con el puesto obtenido
+
 ## 5. Red social (para cuando se construya)
 
 - Muro de noticias como el de Facebook.
