@@ -56,7 +56,19 @@ String nombreSexoCategoria(String s) {
 const String inscripcionPendiente = 'pendiente';
 const String inscripcionConfirmada = 'confirmada';
 
-enum EstadoCompetencia { abiertas, cerradas, enCurso, finalizada }
+enum EstadoCompetencia {
+  abiertas,
+  cerradas,
+  enCurso,
+  finalizada,
+  suspendida,
+  cancelada,
+}
+
+/// Situación que fija el organizador (además de lo que dicen las fechas).
+const String situacionNormal = 'normal';
+const String situacionSuspendida = 'suspendida';
+const String situacionCancelada = 'cancelada';
 
 String nombreEstado(EstadoCompetencia e) {
   switch (e) {
@@ -68,6 +80,10 @@ String nombreEstado(EstadoCompetencia e) {
       return 'En curso';
     case EstadoCompetencia.finalizada:
       return 'Finalizada';
+    case EstadoCompetencia.suspendida:
+      return 'Suspendida';
+    case EstadoCompetencia.cancelada:
+      return 'Cancelada';
   }
 }
 
@@ -106,6 +122,27 @@ class Competencia {
   DateTime get fechaFin => _fecha(datos['fechaFin']);
   DateTime get fechaLimite => _fecha(datos['fechaLimite']);
   bool get cerradaAntes => datos['cerradaAntes'] as bool? ?? false;
+  String get situacion => datos['situacion'] as String? ?? situacionNormal;
+  bool get cancelada => situacion == situacionCancelada;
+  bool get suspendida => situacion == situacionSuspendida;
+  String? get motivo => _opcional(datos['motivo']);
+
+  /// Último aviso del organizador (cancelación, suspensión, reactivación o
+  /// cambio de fecha). El id sirve para mostrarlo una sola vez.
+  String? get avisoId => _opcional(datos['avisoId']);
+  String? get avisoTexto => _opcional(datos['avisoTexto']);
+
+  /// Después de reactivar: hasta cuándo se puede anular una inscripción
+  /// aunque esté confirmada.
+  DateTime? get anularHasta {
+    final v = datos['anularHasta'];
+    return v is Timestamp ? v.toDate() : null;
+  }
+
+  bool puedeAnularConfirmada(DateTime ahora) =>
+      situacion == situacionNormal &&
+      anularHasta != null &&
+      ahora.isBefore(anularHasta!);
   String get pais => datos['pais'] as String? ?? '';
   String get region => datos['region'] as String? ?? '';
   String get ciudad => datos['ciudad'] as String? ?? '';
@@ -134,6 +171,8 @@ class Competencia {
   }
 
   EstadoCompetencia estado(DateTime ahora) {
+    if (cancelada) return EstadoCompetencia.cancelada;
+    if (suspendida) return EstadoCompetencia.suspendida;
     if (!cerradaAntes && ahora.isBefore(diaSiguiente(fechaLimite))) {
       return EstadoCompetencia.abiertas;
     }

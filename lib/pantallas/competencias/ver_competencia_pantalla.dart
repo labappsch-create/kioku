@@ -11,6 +11,7 @@ import 'editar_competencia_pantalla.dart';
 import 'inscribir_alumnos_pantalla.dart';
 import 'inscribir_pantalla.dart';
 import 'inscritos_pantalla.dart';
+import 'reactivar_pantalla.dart';
 
 /// Pantalla 4: ver una competencia.
 class VerCompetenciaPantalla extends StatelessWidget {
@@ -94,6 +95,88 @@ class _Contenido extends StatelessWidget {
     }
   }
 
+  /// Pide el motivo (obligatorio). Devuelve null si se cancela.
+  Future<String?> _pedirMotivo(
+      BuildContext context, String titulo, String explicacion, String boton) {
+    final texto = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(titulo),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(explicacion),
+              const SizedBox(height: 12),
+              TextField(
+                controller: texto,
+                autofocus: true,
+                maxLines: 3,
+                maxLength: 300,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Motivo (obligatorio)',
+                  helperText: 'Los inscritos y sus senseis lo verán en un aviso.',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Volver')),
+            FilledButton(
+              onPressed: texto.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(ctx).pop(texto.text.trim()),
+              child: Text(boton),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _suspender(BuildContext context) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    final motivo = await _pedirMotivo(
+      context,
+      'Suspender torneo',
+      'El torneo queda en pausa. Las inscripciones se mantienen y nadie '
+          'puede inscribirse ni anular. Después lo reactivas con fechas nuevas.',
+      'Suspender',
+    );
+    if (motivo == null) return;
+    try {
+      await CompetenciasServicio().suspender(competencia, motivo);
+      mensajes.showSnackBar(const SnackBar(content: Text('Torneo suspendido')));
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
+  Future<void> _cancelar(BuildContext context) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    final motivo = await _pedirMotivo(
+      context,
+      'Cancelar torneo',
+      'Es definitivo: el torneo no se hará y no se puede deshacer. '
+          'Las inscripciones se mantienen marcadas como "Torneo cancelado".',
+      'Cancelar torneo',
+    );
+    if (motivo == null) return;
+    try {
+      await CompetenciasServicio().cancelar(competencia, motivo);
+      mensajes.showSnackBar(const SnackBar(content: Text('Torneo cancelado')));
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = competencia;
@@ -114,6 +197,26 @@ class _Contenido extends StatelessWidget {
             Chip(label: Text(nombreEstado(estado))),
           ]),
           const SizedBox(height: 8),
+          if (c.cancelada || c.suspendida)
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  '${c.cancelada ? 'Torneo cancelado' : 'Torneo suspendido (postergado)'}'
+                  '\nMotivo: ${c.motivo ?? ''}',
+                ),
+              ),
+            )
+          else if (c.avisoTexto != null)
+            Card(
+              color: Theme.of(context).colorScheme.tertiaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text('Aviso del organizador:\n${c.avisoTexto}'),
+              ),
+            ),
+          const SizedBox(height: 8),
           if (esOrganizador) ...[
             Card(
               color: Theme.of(context).colorScheme.secondaryContainer,
@@ -132,28 +235,60 @@ class _Contenido extends StatelessWidget {
                           InscritosPantalla(
                               competencia: c, uid: uid, comoOrganizador: true)),
                     ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.category),
-                      label: const Text('Categorías'),
-                      onPressed: () =>
-                          _abrir(context, CategoriasPantalla(competencia: c)),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Editar competencia'),
-                      onPressed: () => _abrir(
-                          context,
-                          EditarCompetenciaPantalla(
-                              uid: uid, perfil: perfil, competencia: c)),
-                    ),
+                    if (!c.cancelada) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.category),
+                        label: const Text('Categorías'),
+                        onPressed: () =>
+                            _abrir(context, CategoriasPantalla(competencia: c)),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Editar competencia'),
+                        onPressed: () => _abrir(
+                            context,
+                            EditarCompetenciaPantalla(
+                                uid: uid, perfil: perfil, competencia: c)),
+                      ),
+                    ],
                     if (abiertas) ...[
                       const SizedBox(height: 8),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.lock),
                         label: const Text('Cerrar inscripciones antes'),
                         onPressed: () => _cerrarAntes(context),
+                      ),
+                    ],
+                    if (c.suspendida) ...[
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Reactivar con fechas nuevas'),
+                        onPressed: () =>
+                            _abrir(context, ReactivarPantalla(competencia: c)),
+                      ),
+                    ],
+                    if (!c.cancelada &&
+                        !c.suspendida &&
+                        estado != EstadoCompetencia.finalizada) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.pause),
+                        label: const Text('Suspender (postergar)'),
+                        onPressed: () => _suspender(context),
+                      ),
+                    ],
+                    if (!c.cancelada &&
+                        estado != EstadoCompetencia.finalizada) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Theme.of(context).colorScheme.error),
+                        icon: const Icon(Icons.cancel),
+                        label: const Text('Cancelar torneo'),
+                        onPressed: () => _cancelar(context),
                       ),
                     ],
                   ],

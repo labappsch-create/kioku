@@ -1,8 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
 import 'dojos_servicio.dart';
+
+/// Avisa a la pantalla principal que el perfil cambió desde otra pantalla
+/// (por ejemplo, al crear un dojo y pasar a ser miembro), para recargarlo.
+final ValueNotifier<int> perfilCambiado = ValueNotifier<int>(0);
 
 /// Aviso que se muestra cuando un dojo rechaza o quita a la persona.
 class AvisoDojo {
@@ -57,13 +62,17 @@ class PerfilesServicio {
         lote.delete(_dojos.fichaRef(idAnterior, uid));
       }
       if (perfil.dojoId != null) {
+        // En su propio dojo, el sensei queda confirmado sin solicitud.
+        final dojo = await _db.collection('dojos').doc(perfil.dojoId).get();
+        final esSuyo = dojo.data()?['senseiUid'] == uid;
+        final estado = esSuyo ? estadoConfirmado : estadoPendiente;
         lote.set(_dojos.miembroRef(perfil.dojoId!, uid), {
-          'estado': estadoPendiente,
+          'estado': estado,
           'nombreMostrado': perfil.nombrePublico(hoy),
           'gradoId': perfil.gradoId,
           'actualizado': FieldValue.serverTimestamp(),
         });
-        aGuardar = perfil.conDojo(perfil.dojoId, perfil.dojo, estadoPendiente);
+        aGuardar = perfil.conDojo(perfil.dojoId, perfil.dojo, estado);
       } else {
         aGuardar = perfil.conDojo(null, perfil.dojo, null);
       }

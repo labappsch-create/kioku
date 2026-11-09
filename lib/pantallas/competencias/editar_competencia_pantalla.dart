@@ -271,7 +271,14 @@ class _FormularioState extends State<_Formulario> {
       final navegador = Navigator.of(context);
       final mensajes = ScaffoldMessenger.of(context);
       if (_editando) {
-        await _servicio.actualizar(widget.competencia!.id, datos);
+        final antes = widget.competencia!;
+        final cambioFecha = soloDia(antes.fechaInicio) != _inicio ||
+            soloDia(antes.fechaFin) != _fin;
+        if (cambioFecha) {
+          datos.addAll(CompetenciasServicio.avisoCambioDeFecha(
+              _nombre.text.trim(), _inicio!, _fin!));
+        }
+        await _servicio.actualizar(antes.id, datos);
         mensajes.showSnackBar(const SnackBar(content: Text('Competencia guardada')));
         navegador.pop();
       } else {

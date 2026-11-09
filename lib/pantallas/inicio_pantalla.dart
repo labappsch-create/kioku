@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../modelos/competencia.dart';
 import '../modelos/perfil.dart';
 import '../servicios/admin_servicio.dart';
 import '../servicios/competencias_servicio.dart';
@@ -31,6 +32,13 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
   void initState() {
     super.initState();
     _carga = _cargar();
+    perfilCambiado.addListener(_recargar);
+  }
+
+  @override
+  void dispose() {
+    perfilCambiado.removeListener(_recargar);
+    super.dispose();
   }
 
   Future<Perfil?> _cargar() async {
@@ -49,6 +57,12 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
       if (s != null && s.rechazada) rechazo = s;
     } catch (_) {}
 
+    // Avisos de torneos (cancelado, suspendido, reactivado o cambio de fecha).
+    var torneos = <Competencia>[];
+    try {
+      torneos = await CompetenciasServicio().avisosPendientes(widget.uid);
+    } catch (_) {}
+
     final avisos = <(String, String)>[
       if (aviso != null) ('Aviso de tu dojo', aviso.mensaje),
       if (rechazo != null)
@@ -58,6 +72,7 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
               'Motivo: ${rechazo.motivo}\n\n'
               'Puedes enviar otra desde Competencias → 🏆 → Ser organizador.'
         ),
+      for (final c in torneos) ('Aviso de torneo', c.avisoTexto ?? ''),
     ];
     if (avisos.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -83,6 +98,12 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
             await AdminServicio().cancelarSolicitud(widget.uid);
           } catch (_) {}
         }
+        // Cada aviso de torneo se muestra una sola vez.
+        for (final c in torneos) {
+          try {
+            await CompetenciasServicio().marcarAvisoVisto(widget.uid, c);
+          } catch (_) {}
+        }
       });
     }
     return actual;
@@ -95,7 +116,8 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
     return FutureBuilder<Perfil?>(
       future: _carga,
       builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
+        // Al recargar se sigue mostrando lo anterior (no se pierde la pestaña).
+        if (snap.connectionState != ConnectionState.done && !snap.hasData) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
         }
