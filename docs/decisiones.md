@@ -18,7 +18,7 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 3. Competencias e inscripciones ✅ terminado (versión de prueba 23)
 4. Rankings y resultados ✅ terminado (versión de prueba 31)
 5. Red social ✅ terminado (versión de prueba 37)
-6. Biblioteca con el conocimiento de la disciplina ← siguiente
+6. Biblioteca con el conocimiento de la disciplina ⏸ pospuesta
 
 ## 1. Perfiles
 
@@ -311,3 +311,8 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 10. Logo del dojo y afiche de la competencia
 11. Publicaciones de mis alumnos menores (sensei)
 12. Denuncias (administradores)
+
+## 6. Biblioteca (pospuesta)
+
+- Se decidió **no hacerla por ahora**: el conocimiento de la disciplina se transmite en el dojo, de sensei a alumno.
+- Puede retomarse más adelante.
