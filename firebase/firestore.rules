@@ -181,17 +181,18 @@ service cloud.firestore {
     }
 
     // Menores: solo con personas de su mismo dojo confirmado.
+    // (Usa pocas lecturas: Firebase limita cuántas puede hacer una regla.
+    // Si un perfil o un miembro no existe, la regla falla y se rechaza.)
     function puedenSerAmigos(a, b) {
-      return existePerfil(a) && existePerfil(b)
-        && puedenSerAmigosP(a, b, perfilDe(a), perfilDe(b));
+      return puedenSerAmigosP(a, b, perfilDe(a), perfilDe(b));
     }
 
     function puedenSerAmigosP(a, b, pa, pb) {
       return (pa.get('esMenor', true) == false && pb.get('esMenor', true) == false)
         || (pa.get('dojoId', null) is string
             && pa.get('dojoId', null) == pb.get('dojoId', null)
-            && miembroConfirmado(pa.dojoId, a)
-            && miembroConfirmado(pa.dojoId, b));
+            && get(/databases/$(database)/documents/dojos/$(pa.dojoId)/miembros/$(a)).data.estado == 'confirmado'
+            && get(/databases/$(database)/documents/dojos/$(pa.dojoId)/miembros/$(b)).data.estado == 'confirmado');
     }
 
     // Publicación de una persona: dueño, "cualquiera", amigos, su sensei
