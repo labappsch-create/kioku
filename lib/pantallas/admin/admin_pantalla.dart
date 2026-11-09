@@ -4,6 +4,8 @@ import '../../modelos/perfil.dart';
 import '../../servicios/admin_servicio.dart';
 import '../../servicios/errores.dart';
 import '../../servicios/perfiles_servicio.dart';
+import '../../servicios/social_servicio.dart';
+import '../../widgets/tarjeta_publicacion.dart';
 
 /// Pantalla 2: administración (solo administradores).
 class AdminPantalla extends StatelessWidget {
@@ -12,20 +14,24 @@ class AdminPantalla extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Administración'),
           bottom: const TabBar(isScrollable: true, tabs: [
+            Tab(text: 'Denuncias'),
             Tab(text: 'Solicitudes'),
             Tab(text: 'Organizadores'),
             Tab(text: 'Administradores'),
+            Tab(text: 'Suspendidos'),
           ]),
         ),
         body: const TabBarView(children: [
+          _Denuncias(),
           _Solicitudes(),
           _ListaSimple(organizadores: true),
           _ListaSimple(organizadores: false),
+          _Suspendidos(),
         ]),
       ),
     );
@@ -333,6 +339,132 @@ class _NombrarAdminPantallaState extends State<_NombrarAdminPantalla> {
                 ),
         ),
       ]),
+    );
+  }
+}
+
+String _nombreTipo(String tipo) {
+  switch (tipo) {
+    case 'publicacion':
+      return 'Publicación';
+    case 'comentario':
+      return 'Comentario';
+  }
+  return 'Perfil';
+}
+
+/// Pantalla 12: denuncias. Borrar el contenido, suspender a quien lo
+/// publicó o descartar la denuncia.
+class _Denuncias extends StatelessWidget {
+  const _Denuncias();
+
+  @override
+  Widget build(BuildContext context) {
+    final servicio = SocialServicio();
+    return StreamBuilder(
+      stream: servicio.denuncias(),
+      builder: (context, snap) {
+        if (snap.hasError) return Center(child: Text(mensajeDeError(snap.error!)));
+        final lista = snap.data;
+        if (lista == null) return const Center(child: CircularProgressIndicator());
+        if (lista.isEmpty) return const Center(child: Text('No hay denuncias.'));
+        return ListView.separated(
+          itemCount: lista.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, i) {
+            final d = lista[i];
+            final datos = d.data();
+            final tipo = datos['tipo'] as String? ?? 'perfil';
+            final ruta = datos['ruta'] as String? ?? '';
+            final autorUid = datos['autorUid'] as String? ?? '';
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_nombreTipo(tipo), style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  Text('Contenido: "${datos['vistaPrevia'] ?? ''}"'),
+                  const SizedBox(height: 4),
+                  Text('Motivo: ${datos['motivo'] ?? ''}'),
+                  Wrap(alignment: WrapAlignment.end, spacing: 4, children: [
+                    TextButton(
+                      onPressed: () => Navegacion.abrirPerfil?.call(context, autorUid),
+                      child: const Text('Ver autor'),
+                    ),
+                    TextButton(
+                      onPressed: () => _hacer(context, () => servicio.descartarDenuncia(d.id),
+                          'Denuncia descartada'),
+                      child: const Text('Descartar'),
+                    ),
+                    if (tipo != 'perfil')
+                      TextButton(
+                        onPressed: () async {
+                          if (!await _confirmar(context, '¿Borrar este contenido?') ||
+                              !context.mounted) {
+                            return;
+                          }
+                          await _hacer(context, () async {
+                            await servicio.borrarDenunciado(ruta);
+                            await servicio.descartarDenuncia(d.id);
+                          }, 'Contenido borrado');
+                        },
+                        child: const Text('Borrar contenido'),
+                      ),
+                    FilledButton(
+                      onPressed: () async {
+                        if (!await _confirmar(context,
+                                '¿Suspender la cuenta de quien publicó esto? No podrá publicar, '
+                                'comentar ni enviar solicitudes.') ||
+                            !context.mounted) {
+                          return;
+                        }
+                        final perfil = await PerfilesServicio().verPublico(autorUid).first;
+                        if (!context.mounted) return;
+                        await _hacer(context,
+                            () => servicio.suspender(autorUid, perfil?.nombre ?? ''),
+                            'Cuenta suspendida');
+                      },
+                      child: const Text('Suspender cuenta'),
+                    ),
+                  ]),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _Suspendidos extends StatelessWidget {
+  const _Suspendidos();
+
+  @override
+  Widget build(BuildContext context) {
+    final servicio = SocialServicio();
+    return StreamBuilder(
+      stream: servicio.suspendidos(),
+      builder: (context, snap) {
+        if (snap.hasError) return Center(child: Text(mensajeDeError(snap.error!)));
+        final lista = snap.data;
+        if (lista == null) return const Center(child: CircularProgressIndicator());
+        if (lista.isEmpty) return const Center(child: Text('No hay cuentas suspendidas.'));
+        return ListView(children: [
+          for (final d in lista)
+            ListTile(
+              leading: const Icon(Icons.block),
+              title: Text(d.data()['nombre'] as String? ?? ''),
+              onTap: () => Navegacion.abrirPerfil?.call(context, d.id),
+              trailing: TextButton(
+                onPressed: () => _hacer(context, () => servicio.quitarSuspension(d.id),
+                    'Suspensión quitada'),
+                child: const Text('Quitar suspensión'),
+              ),
+            ),
+        ]);
+      },
     );
   }
 }

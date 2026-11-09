@@ -101,6 +101,8 @@ class Dojo {
     this.instagram,
     this.facebook,
     required this.descripcion,
+    this.logoUrl,
+    this.logoRuta,
     this.mostrarDireccion = true,
     this.mostrarHorarios = true,
     this.mostrarTelefono = true,
@@ -125,6 +127,8 @@ class Dojo {
   final String? instagram;
   final String? facebook;
   final String descripcion;
+  final String? logoUrl;
+  final String? logoRuta;
 
   final bool mostrarDireccion;
   final bool mostrarHorarios;
@@ -135,6 +139,34 @@ class Dojo {
   final bool mostrarMiembros;
 
   String get organizacion => nombreOrganizacion(organizacionId, organizacionOtra);
+
+  /// Copia con otro logo.
+  Dojo conLogo(String? url, String? ruta) => Dojo(
+        senseiUid: senseiUid,
+        senseiNombre: senseiNombre,
+        nombre: nombre,
+        organizacionId: organizacionId,
+        organizacionOtra: organizacionOtra,
+        pais: pais,
+        region: region,
+        ciudad: ciudad,
+        direccion: direccion,
+        horarios: horarios,
+        telefono: telefono,
+        correo: correo,
+        instagram: instagram,
+        facebook: facebook,
+        descripcion: descripcion,
+        logoUrl: url,
+        logoRuta: ruta,
+        mostrarDireccion: mostrarDireccion,
+        mostrarHorarios: mostrarHorarios,
+        mostrarTelefono: mostrarTelefono,
+        mostrarCorreo: mostrarCorreo,
+        mostrarRedes: mostrarRedes,
+        mostrarDescripcion: mostrarDescripcion,
+        mostrarMiembros: mostrarMiembros,
+      );
 
   Map<String, Object?> aMapa() => {
         'senseiUid': senseiUid,
@@ -152,6 +184,8 @@ class Dojo {
         'instagram': instagram,
         'facebook': facebook,
         'descripcion': descripcion,
+        'logoUrl': logoUrl,
+        'logoRuta': logoRuta,
         'mostrarDireccion': mostrarDireccion,
         'mostrarHorarios': mostrarHorarios,
         'mostrarTelefono': mostrarTelefono,
@@ -178,6 +212,8 @@ class Dojo {
         instagram: _textoOpcional(m['instagram']),
         facebook: _textoOpcional(m['facebook']),
         descripcion: m['descripcion'] as String? ?? '',
+        logoUrl: _textoOpcional(m['logoUrl']),
+        logoRuta: _textoOpcional(m['logoRuta']),
         mostrarDireccion: m['mostrarDireccion'] as bool? ?? true,
         mostrarHorarios: m['mostrarHorarios'] as bool? ?? true,
         mostrarTelefono: m['mostrarTelefono'] as bool? ?? true,
@@ -198,6 +234,7 @@ class Dojo {
         'pais': pais,
         'region': region,
         'ciudad': ciudad,
+        if (logoUrl != null) 'logoUrl': logoUrl,
         if (mostrarDireccion) 'direccion': direccion,
         if (mostrarHorarios) 'horarios': [for (final c in horarios) c.aMapa()],
         if (mostrarTelefono) 'telefono': telefono,
@@ -234,6 +271,7 @@ class DojoPublico {
   String? get facebook => _textoOpcional(datos['facebook']);
   String? get descripcion => _textoOpcional(datos['descripcion']);
   bool get mostrarMiembros => datos['mostrarMiembros'] as bool? ?? false;
+  String? get logoUrl => _textoOpcional(datos['logoUrl']);
 
   String get lugar =>
       [ciudad, region, pais].where((t) => t.isNotEmpty).join(', ');

@@ -7,6 +7,9 @@ import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
+import '../servicios/fotos_servicio.dart';
+import '../servicios/social_servicio.dart';
+import '../widgets/avatar.dart';
 import '../widgets/tarjeta_perfil.dart';
 import 'dojos/buscar_dojos_pantalla.dart';
 
@@ -297,6 +300,10 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
                   ),
                 ),
                 espacio,
+              ],
+              if (widget.perfil != null) ...[
+                _FotoPerfil(perfil: widget.perfil!),
+                const SizedBox(height: 16),
               ],
               Text('Datos obligatorios', style: textos.titleMedium),
               espacio,
@@ -591,5 +598,84 @@ class _SeccionPrivacidad extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Foto de perfil: se guarda al instante, sin tocar "Guardar perfil".
+class _FotoPerfil extends StatefulWidget {
+  const _FotoPerfil({required this.perfil});
+
+  final Perfil perfil;
+
+  @override
+  State<_FotoPerfil> createState() => _FotoPerfilState();
+}
+
+class _FotoPerfilState extends State<_FotoPerfil> {
+  bool _trabajando = false;
+  int _version = 0;
+
+  Future<void> _hacer(Future<void> Function() accion, String listo) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    setState(() => _trabajando = true);
+    try {
+      await accion();
+      mensajes.showSnackBar(SnackBar(content: Text(listo)));
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _trabajando = false;
+          _version++;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final esMenor = widget.perfil.esMenorDeEdad(DateTime.now());
+    final servicio = SocialServicio();
+    return Row(children: [
+      Avatar(
+        key: ValueKey(_version),
+        uid: uid,
+        nombre: widget.perfil.nombre,
+        radio: 36,
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(spacing: 8, children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.photo_camera),
+                label: const Text('Cambiar foto'),
+                onPressed: _trabajando
+                    ? null
+                    : () async {
+                        final f = await FotosServicio().elegirUna(lado: 600);
+                        if (f == null) return;
+                        await _hacer(() => servicio.guardarFotoPerfil(uid, esMenor, f),
+                            'Foto guardada');
+                      },
+              ),
+              TextButton(
+                onPressed: _trabajando
+                    ? null
+                    : () => _hacer(() => servicio.quitarFotoPerfil(uid), 'Foto quitada'),
+                child: const Text('Quitar'),
+              ),
+            ]),
+            if (esMenor)
+              const Text('Como eres menor de 18, tu foto la ven solo tus amigos y tu sensei.',
+                  style: TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+    ]);
   }
 }

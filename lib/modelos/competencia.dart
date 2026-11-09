@@ -151,6 +151,8 @@ class Competencia {
   String get contacto => datos['contacto'] as String? ?? '';
   String? get costo => _opcional(datos['costo']);
   String? get reglamento => _opcional(datos['reglamento']);
+  String? get aficheUrl => _opcional(datos['aficheUrl']);
+  String? get aficheRuta => _opcional(datos['aficheRuta']);
 
   List<String> get modalidadesElegidas {
     final v = datos['modalidades'];

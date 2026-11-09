@@ -3,10 +3,16 @@ import 'package:flutter/material.dart';
 
 import '../../datos/grados.dart';
 import '../../modelos/dojo.dart';
+import '../../modelos/publicacion.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
 import '../../servicios/perfiles_servicio.dart';
+import '../../servicios/sesion.dart';
+import '../../servicios/social_servicio.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/tarjeta_perfil.dart';
+import '../../widgets/tarjeta_publicacion.dart';
+import '../social/crear_publicacion_pantalla.dart';
 import '../ver_perfil_pantalla.dart';
 import 'editar_dojo_pantalla.dart';
 import 'miembros_pantalla.dart';
@@ -50,9 +56,22 @@ class VerDojoPantalla extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(dojo.nombre, style: textos.headlineSmall),
-              const SizedBox(height: 4),
-              Text(dojo.organizacion, style: textos.titleSmall),
+              Row(children: [
+                Avatar(uid: '', nombre: dojo.nombre, radio: 32, urlFija: dojo.logoUrl),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(dojo.nombre, style: textos.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text(dojo.organizacion, style: textos.titleSmall),
+                    ],
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              if (!esSensei) _BotonSeguir(dojoId: dojoId, nombre: dojo.nombre),
               const SizedBox(height: 16),
               if (esSensei) ...[
                 _AccionesSensei(dojoId: dojoId, nombre: dojo.nombre, uid: uid),
@@ -112,10 +131,149 @@ class VerDojoPantalla extends StatelessWidget {
                 const SizedBox(height: 4),
                 _ListaMiembros(dojoId: dojoId),
               ],
+              const SizedBox(height: 24),
+              Text('Publicaciones del dojo', style: textos.titleMedium),
+              _PublicacionesDojo(dojoId: dojoId, nombre: dojo.nombre, esSensei: esSensei),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _BotonSeguir extends StatelessWidget {
+  const _BotonSeguir({required this.dojoId, required this.nombre});
+
+  final String dojoId;
+  final String nombre;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: Sesion.cambios,
+      builder: (context, _, __) {
+        final r = Sesion.relaciones;
+        final yo = Sesion.uid;
+        if (r == null || yo == null) return const SizedBox.shrink();
+        final sigo = r.siguiendo.containsKey(dojoId);
+        Future<void> cambiar() async {
+          final mensajes = ScaffoldMessenger.of(context);
+          try {
+            if (sigo) {
+              await SocialServicio().dejarDeSeguir(yo, dojoId);
+            } else {
+              await SocialServicio().seguir(yo, dojoId, nombre);
+            }
+          } catch (e) {
+            mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+          }
+        }
+
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: sigo
+              ? OutlinedButton.icon(
+                  icon: const Icon(Icons.check),
+                  label: const Text('Siguiendo'),
+                  onPressed: cambiar,
+                )
+              : FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Seguir'),
+                  onPressed: cambiar,
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _PublicacionesDojo extends StatefulWidget {
+  const _PublicacionesDojo({
+    required this.dojoId,
+    required this.nombre,
+    required this.esSensei,
+  });
+
+  final String dojoId;
+  final String nombre;
+  final bool esSensei;
+
+  @override
+  State<_PublicacionesDojo> createState() => _PublicacionesDojoState();
+}
+
+class _PublicacionesDojoState extends State<_PublicacionesDojo> {
+  late Future<List<Publicacion>> _carga;
+
+  @override
+  void initState() {
+    super.initState();
+    _carga = _cargar();
+  }
+
+  Future<List<Publicacion>> _cargar() async {
+    final yo = Sesion.uid;
+    var completo = widget.esSensei;
+    if (!completo && yo != null) {
+      final estado = await DojosServicio().estadoMiembro(widget.dojoId, yo).first;
+      completo = estado == estadoConfirmado;
+    }
+    return SocialServicio().deDojo(widget.dojoId, completo: completo);
+  }
+
+  void _recargar() => setState(() => _carga = _cargar());
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.esSensei)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: FilledButton.icon(
+              icon: const Icon(Icons.edit),
+              label: const Text('Publicar como dojo'),
+              onPressed: () async {
+                final r = await Navigator.of(context).push<bool>(MaterialPageRoute(
+                  builder: (_) => CrearPublicacionPantalla(
+                      dojo: DojoQuePublica(widget.dojoId, widget.nombre)),
+                ));
+                if (r == true) _recargar();
+              },
+            ),
+          ),
+        FutureBuilder<List<Publicacion>>(
+          future: _carga,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snap.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(mensajeDeError(snap.error!)),
+              );
+            }
+            final lista = snap.data ?? const <Publicacion>[];
+            if (lista.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Aún no hay publicaciones que puedas ver.'),
+              );
+            }
+            return Column(children: [
+              for (final p in lista)
+                TarjetaPublicacion(publicacion: p, alCambiar: _recargar),
+            ]);
+          },
+        ),
+      ],
     );
   }
 }

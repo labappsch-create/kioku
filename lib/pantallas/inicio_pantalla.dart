@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,16 @@ import 'admin/admin_pantalla.dart';
 import 'competencias/competencias_pantalla.dart';
 import 'dojos/dojos_pantalla.dart';
 import 'rankings/rankings_pantalla.dart';
+import 'competencias/ver_competencia_pantalla.dart';
+import 'dojos/ver_dojo_pantalla.dart';
+import 'social/alumnos_menores_pantalla.dart';
+import 'social/amigos_pantalla.dart';
+import 'social/crear_publicacion_pantalla.dart';
+import 'social/muro_pantalla.dart';
+import 'social/ver_publicacion_pantalla.dart';
+import '../servicios/sesion.dart';
+import '../widgets/avatar.dart';
+import '../widgets/tarjeta_publicacion.dart';
 import 'editar_perfil_pantalla.dart';
 import 'ver_perfil_pantalla.dart';
 
@@ -177,6 +189,50 @@ class InicioPantalla extends StatefulWidget {
 
 class _InicioPantallaState extends State<InicioPantalla> {
   int _pestana = 0;
+  StreamSubscription<bool>? _admin;
+
+  @override
+  void initState() {
+    super.initState();
+    Sesion.iniciar(widget.uid, widget.perfil);
+    _admin = AdminServicio()
+        .esAdmin(widget.uid, FirebaseAuth.instance.currentUser?.email)
+        .listen((v) => Sesion.esAdmin = v, onError: (_) {});
+    _conectarNavegacion();
+  }
+
+  @override
+  void didUpdateWidget(covariant InicioPantalla anterior) {
+    super.didUpdateWidget(anterior);
+    Sesion.iniciar(widget.uid, widget.perfil);
+  }
+
+  @override
+  void dispose() {
+    _admin?.cancel();
+    super.dispose();
+  }
+
+  /// Las tarjetas de publicaciones abren estas pantallas.
+  void _conectarNavegacion() {
+    Navegacion.abrirPerfil = (ctx, uid) => Navigator.of(ctx)
+        .push(MaterialPageRoute(builder: (_) => VerPerfilPantalla(uid: uid)));
+    Navegacion.abrirDojo = (ctx, id) => Navigator.of(ctx)
+        .push(MaterialPageRoute(builder: (_) => VerDojoPantalla(dojoId: id)));
+    Navegacion.abrirCompetencia = (ctx, id) {
+      final perfil = Sesion.perfil;
+      final uid = Sesion.uid;
+      if (perfil == null || uid == null) return;
+      Navigator.of(ctx).push(MaterialPageRoute(
+          builder: (_) =>
+              VerCompetenciaPantalla(competenciaId: id, uid: uid, perfil: perfil)));
+    };
+    Navegacion.abrirPublicacion = (ctx, p, moderar) => Navigator.of(ctx).push(
+        MaterialPageRoute(
+            builder: (_) => VerPublicacionPantalla(publicacion: p, puedeModerar: moderar)));
+    Navegacion.editarPublicacion = (ctx, p) => Navigator.of(ctx).push(
+        MaterialPageRoute(builder: (_) => CrearPublicacionPantalla(editar: p)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +240,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
       body: IndexedStack(
         index: _pestana,
         children: [
+          const MuroPantalla(),
           MiPerfilPantalla(
               uid: widget.uid, perfil: widget.perfil, alCambiar: widget.alCambiar),
           const BuscarPantalla(),
@@ -194,8 +251,10 @@ class _InicioPantallaState extends State<InicioPantalla> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _pestana,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         onDestinationSelected: (i) => setState(() => _pestana = i),
         destinations: const [
+          NavigationDestination(icon: Icon(Icons.dynamic_feed), label: 'Muro'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Mi perfil'),
           NavigationDestination(icon: Icon(Icons.people), label: 'Practicantes'),
           NavigationDestination(
@@ -269,7 +328,31 @@ class MiPerfilPantalla extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
+              Center(child: Avatar(uid: uid, nombre: publico.nombre, radio: 44)),
+              const SizedBox(height: 12),
               TarjetaPerfil(perfil: publico),
+              const SizedBox(height: 16),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.group),
+                  label: const Text('Amigos'),
+                  onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AmigosPantalla())),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.dynamic_feed),
+                  label: const Text('Mis publicaciones'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => VerPerfilPantalla(uid: uid))),
+                ),
+                if (esEntrenador(perfil))
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.shield),
+                    label: const Text('Alumnos menores'),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => AlumnosMenoresPantalla(uid: uid))),
+                  ),
+              ]),
               const SizedBox(height: 24),
               FilledButton.icon(
                 icon: const Icon(Icons.edit),
