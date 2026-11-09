@@ -253,10 +253,61 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 5. Tabla de puntos
 6. Historial del perfil con el puesto obtenido
 
-## 5. Red social (para cuando se construya)
+## 5. Red social
 
-- Muro de noticias como el de Facebook.
-- Publicaciones: pensamientos (texto), fotos, videos cortos de práctica y torneos.
-- Las ven los amigos (solicitudes de amistad aceptadas).
-- Fotos y videos requieren el plan Blaze de Firebase.
-- Los **dojos también publican**. Sus publicaciones las ven quienes siguen al dojo y sus miembros.
+### Fotos
+
+- **Solo fotos, sin videos** (los videos gastan mucho). Plan **Blaze** de Firebase con **alerta de gasto**.
+- Las fotos se **achican** antes de subirlas y se guardan en un servidor de **Estados Unidos** con uso gratuito.
+- Se agregan también: **foto de perfil**, **logo del dojo** y **afiche de la competencia**.
+
+### Publicaciones
+
+- Muro como el de Facebook: texto y **hasta 4 fotos**.
+- En cada publicación la persona elige si la ven **solo sus amigos** o **cualquiera con cuenta**.
+- El muro muestra lo de los **amigos**, los **dojos que sigues** y **tu dojo**. Las publicaciones "para cualquiera" de quienes no son tus amigos se ven al **entrar a su perfil**.
+- **"Me gusta" y comentarios.**
+- El dueño puede **borrar** su publicación o **editarla completa** (fotos incluidas).
+- **Compartir torneo:** botón en cada competencia que crea una publicación con la tarjeta del torneo.
+
+### Amigos
+
+- Por **solicitud de amistad** que la otra persona acepta. Se puede eliminar a un amigo.
+- **Bloquear:** la persona bloqueada no aparece más y no puede enviar solicitudes. Al bloquear se elimina la amistad.
+
+### Menores de 18 (con límites y supervisión)
+
+- Sus publicaciones son **siempre solo para amigos**.
+- Solo pueden ser amigos de personas de **su mismo dojo confirmado**.
+- Su **sensei** puede ver sus publicaciones y borrarlas.
+- Solo pueden comentar publicaciones de sus amigos o de su propio dojo.
+- Su **foto de perfil** la ven solo sus amigos y su sensei; los demás ven un círculo con su inicial.
+
+### Comentarios
+
+- Los borra quien lo escribió o el dueño de la publicación. En publicaciones de menores, también su sensei.
+
+### Dojos
+
+- El sensei a cargo publica a nombre del dojo. Cualquiera puede **seguir** un dojo.
+- En cada publicación del dojo, el sensei elige si la ven **seguidores y miembros** o **solo miembros**.
+
+### Denuncias y moderación
+
+- Botón **"Denunciar"** en publicaciones, comentarios y perfiles. Las denuncias llegan a los **administradores**.
+- Los administradores pueden **borrar contenido** y **suspender cuentas** (no pueden publicar, comentar ni enviar solicitudes).
+
+### Pantallas
+
+1. Muro (pestaña nueva)
+2. Crear o editar publicación
+3. Ver publicación (fotos, me gusta, comentarios)
+4. Compartir torneo
+5. Amigos (lista, solicitudes, eliminar)
+6. Perfil de otra persona (agregar amigo, bloquear, denunciar, publicaciones)
+7. Bloqueados
+8. Foto de perfil
+9. Seguir dojo y publicaciones del dojo
+10. Logo del dojo y afiche de la competencia
+11. Publicaciones de mis alumnos menores (sensei)
+12. Denuncias (administradores)
