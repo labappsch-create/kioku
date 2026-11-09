@@ -72,7 +72,7 @@ class EditarCompetenciaPantalla extends StatelessWidget {
                     '(pestaña Dojos → Mis dojos).\n\n'
                     'Para torneos regionales, nacionales o internacionales '
                     'necesitas ser organizador aprobado '
-                    '(Competencias → menú 🏆 → Ser organizador).',
+                    '(Torneos → menú 🏆 → Ser organizador).',
                     textAlign: TextAlign.center,
                   ),
                 ),
