@@ -90,7 +90,7 @@ class _ListaAmigos extends StatelessWidget {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('Aún no tienes amigos.\nBúscalos en la pestaña Practicantes.',
+          child: Text('Aún no tienes amigos.\nBúscalos en la pestaña Gente.',
               textAlign: TextAlign.center),
         ),
       );

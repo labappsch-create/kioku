@@ -139,7 +139,7 @@ class _MuroPantallaState extends State<MuroPantalla> {
                   const Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'Tu muro está vacío.\n\nAgrega amigos (búscalos en Practicantes), '
+                      'Tu muro está vacío.\n\nAgrega amigos (búscalos en Gente), '
                       'sigue dojos o publica algo tú.',
                       textAlign: TextAlign.center,
                     ),

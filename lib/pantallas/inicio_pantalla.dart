@@ -84,7 +84,7 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
           'Solicitud de organizador',
           'Tu solicitud para ser organizador fue rechazada.\n\n'
               'Motivo: ${rechazo.motivo}\n\n'
-              'Puedes enviar otra desde Competencias → 🏆 → Ser organizador.'
+              'Puedes enviar otra desde Torneos → 🏆 → Ser organizador.'
         ),
       for (final c in torneos) ('Aviso de torneo', c.avisoTexto ?? ''),
     ];
@@ -257,11 +257,11 @@ class _InicioPantallaState extends State<InicioPantalla> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dynamic_feed), label: 'Muro'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Mi perfil'),
-          NavigationDestination(icon: Icon(Icons.people), label: 'Practicantes'),
+          NavigationDestination(icon: Icon(Icons.people), label: 'Gente'),
           NavigationDestination(
               icon: Icon(Icons.sports_martial_arts), label: 'Dojos'),
           NavigationDestination(
-              icon: Icon(Icons.emoji_events), label: 'Competencias'),
+              icon: Icon(Icons.emoji_events), label: 'Torneos'),
           NavigationDestination(
               icon: Icon(Icons.leaderboard), label: 'Rankings'),
         ],

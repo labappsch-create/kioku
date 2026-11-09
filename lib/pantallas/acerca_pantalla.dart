@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Versión que se muestra. Debe coincidir con "version" en pubspec.yaml.
-const String versionKioku = '0.7.1';
+const String versionKioku = '0.7.2';
 
 /// "Acerca de Kioku": significado del nombre, versión y créditos.
 class AcercaPantalla extends StatelessWidget {
