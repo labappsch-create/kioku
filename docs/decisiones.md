@@ -17,8 +17,8 @@ Este documento registra lo que el dueño del proyecto decidió. Antes de constru
 2. Clubes (dojos) ✅ terminado (versión de prueba 18)
 3. Competencias e inscripciones ✅ terminado (versión de prueba 23)
 4. Rankings y resultados ✅ terminado (versión de prueba 31)
-5. Red social ← siguiente
-6. Biblioteca con el conocimiento de la disciplina
+5. Red social ✅ terminado (versión de prueba 37)
+6. Biblioteca con el conocimiento de la disciplina ← siguiente
 
 ## 1. Perfiles
 
