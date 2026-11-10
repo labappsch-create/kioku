@@ -11,6 +11,7 @@ import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
 import 'acerca_pantalla.dart';
+import 'barra_acciones.dart';
 import 'admin/admin_pantalla.dart';
 import 'competencias/competencias_pantalla.dart';
 import 'dojos/dojos_pantalla.dart';
@@ -244,20 +245,32 @@ class _InicioPantallaState extends State<InicioPantalla> {
           const MuroPantalla(),
           MiPerfilPantalla(
               uid: widget.uid, perfil: widget.perfil, alCambiar: widget.alCambiar),
-          const BuscarPantalla(),
           DojosPantalla(uid: widget.uid, perfil: widget.perfil),
           CompetenciasPantalla(uid: widget.uid, perfil: widget.perfil),
           RankingsPantalla(paisInicial: widget.perfil.pais),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
+      // Se esconde al bajar por el Muro (ver muro_pantalla.dart).
+      bottomNavigationBar: ValueListenableBuilder<bool>(
+        valueListenable: barraInferiorVisible,
+        builder: (context, visible, barra) => ClipRect(
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 200),
+            alignment: Alignment.topCenter,
+            heightFactor: visible ? 1 : 0,
+            child: barra,
+          ),
+        ),
+        child: NavigationBar(
         selectedIndex: _pestana,
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-        onDestinationSelected: (i) => setState(() => _pestana = i),
+        onDestinationSelected: (i) {
+          barraInferiorVisible.value = true;
+          setState(() => _pestana = i);
+        },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dynamic_feed), label: 'Muro'),
           NavigationDestination(icon: Icon(Icons.person), label: 'Mi perfil'),
-          NavigationDestination(icon: Icon(Icons.people), label: 'Gente'),
           NavigationDestination(
               icon: Icon(Icons.sports_martial_arts), label: 'Dojos'),
           NavigationDestination(
@@ -265,6 +278,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
           NavigationDestination(
               icon: Icon(Icons.leaderboard), label: 'Rankings'),
         ],
+      ),
       ),
     );
   }
@@ -289,6 +303,8 @@ class MiPerfilPantalla extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mi perfil'),
         actions: [
+          const BotonCrear(),
+          const BotonBuscar(),
           StreamBuilder<bool>(
             stream: AdminServicio()
                 .esAdmin(uid, FirebaseAuth.instance.currentUser?.email),
@@ -377,98 +393,6 @@ class MiPerfilPantalla extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Pantalla 5: buscar practicantes por nombre.
-class BuscarPantalla extends StatefulWidget {
-  const BuscarPantalla({super.key});
-
-  @override
-  State<BuscarPantalla> createState() => _BuscarPantallaState();
-}
-
-class _BuscarPantallaState extends State<BuscarPantalla> {
-  final _servicio = PerfilesServicio();
-  final _texto = TextEditingController();
-  late Future<List<PerfilPublico>> _resultados;
-
-  @override
-  void initState() {
-    super.initState();
-    _resultados = _servicio.buscar('');
-  }
-
-  @override
-  void dispose() {
-    _texto.dispose();
-    super.dispose();
-  }
-
-  void _buscar() =>
-      setState(() => _resultados = _servicio.buscar(_texto.text));
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Buscar practicantes')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _texto,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _buscar(),
-              decoration: InputDecoration(
-                labelText: 'Nombre',
-                helperText: 'Escribe el comienzo del nombre',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                    icon: const Icon(Icons.search), onPressed: _buscar),
-              ),
-            ),
-          ),
-          Expanded(
-            child: FutureBuilder<List<PerfilPublico>>(
-              future: _resultados,
-              builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snap.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(mensajeDeError(snap.error!),
-                          textAlign: TextAlign.center),
-                    ),
-                  );
-                }
-                final lista = snap.data ?? const [];
-                if (lista.isEmpty) {
-                  return const Center(child: Text('No se encontró a nadie.'));
-                }
-                return ListView.separated(
-                  itemCount: lista.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final p = lista[i];
-                    return ListTile(
-                      title: Text(p.nombre),
-                      subtitle: Text(p.dojo.isEmpty ? 'Sin dojo' : p.dojo),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => VerPerfilPantalla(uid: p.id))),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }
