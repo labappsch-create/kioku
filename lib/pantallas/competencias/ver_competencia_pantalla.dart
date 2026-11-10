@@ -11,8 +11,10 @@ import '../../servicios/competencias_servicio.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
 import '../../servicios/resultados_servicio.dart';
+import '../../servicios/sesion.dart';
 import '../resultados/cargar_resultados_pantalla.dart';
 import '../social/crear_publicacion_pantalla.dart';
+import 'ocultar_torneo.dart';
 import '../ver_perfil_pantalla.dart';
 import 'categorias_pantalla.dart';
 import 'editar_competencia_pantalla.dart';
@@ -162,6 +164,38 @@ class _Contenido extends StatelessWidget {
     try {
       await CompetenciasServicio().suspender(competencia, motivo);
       mensajes.showSnackBar(const SnackBar(content: Text('Torneo suspendido')));
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
+  Future<void> _borrar(BuildContext context) async {
+    final navegador = Navigator.of(context);
+    final mensajes = ScaffoldMessenger.of(context);
+    final si = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Borrar torneo'),
+        content: const Text(
+            'Se borrará para todos: el torneo, sus categorías y sus inscripciones. '
+            'Esto no se puede deshacer.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Volver')),
+          FilledButton(
+              style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Borrar')),
+        ],
+      ),
+    );
+    if (si != true) return;
+    try {
+      await CompetenciasServicio().borrarTorneo(competencia, uid);
+      mensajes.showSnackBar(const SnackBar(content: Text('Torneo borrado')));
+      navegador.pop();
     } catch (e) {
       mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
     }
@@ -318,12 +352,37 @@ class _Contenido extends StatelessWidget {
                         onPressed: () => _cancelar(context),
                       ),
                     ],
+                    if (c.cancelada) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Theme.of(context).colorScheme.error),
+                        icon: const Icon(Icons.delete_forever),
+                        label: const Text('Borrar torneo'),
+                        onPressed: () => _borrar(context),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 8),
           ],
+          if (sePuedeOcultar(c))
+            ValueListenableBuilder<int>(
+              valueListenable: Sesion.cambios,
+              builder: (context, _, __) {
+                final oculto = estaOculto(c.id);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: OutlinedButton.icon(
+                    icon: Icon(oculto ? Icons.visibility : Icons.visibility_off),
+                    label: Text(oculto ? 'Mostrar de nuevo en mis listas' : 'Ocultar de mis listas'),
+                    onPressed: () => cambiarOculto(context, c, ocultar: !oculto),
+                  ),
+                );
+              },
+            ),
           if (!c.cancelada)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),

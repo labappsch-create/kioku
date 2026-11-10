@@ -170,6 +170,8 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 - **Suspender:** postergar. Las inscripciones se mantienen. Mientras está suspendido nadie puede inscribirse, y el atleta y su sensei no pueden anular. El organizador lo **reactiva con fechas nuevas**.
 - Al reactivar, el atleta o su sensei pueden **anular su inscripción aunque esté confirmada**, hasta el nuevo cierre de inscripciones. Después vuelve la regla normal.
 - El **motivo es obligatorio** al cancelar o suspender.
+- **Borrar torneo:** el organizador puede borrar **para todos** un torneo **cancelado** (se borran también sus categorías e inscripciones).
+- **Ocultar de mis listas:** cualquier persona puede ocultar un torneo **cancelado o terminado**. Desaparece de Torneos, Mis competencias y Mis inscripciones solo para esa persona. Al final de cada lista, **"Ver ocultos"** permite verlos y volver a mostrarlos.
 - Avisos (cancelación, suspensión, reactivación o cambio de fecha): se ven en la competencia, en "Mis inscripciones" y **al abrir la app**, para los atletas inscritos y sus senseis. Cada aviso se muestra una sola vez.
 
 ### Categorías

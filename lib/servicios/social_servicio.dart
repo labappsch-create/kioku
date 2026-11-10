@@ -47,6 +47,9 @@ class Relaciones extends ChangeNotifier {
   Map<String, String> siguiendo = {};
   bool suspendido = false;
 
+  /// Torneos que ocultó de sus listas.
+  Set<String> ocultos = {};
+
   void _escuchar() {
     void cambio() => notifyListeners();
     void ignorar(Object _) {}
@@ -93,6 +96,15 @@ class Relaciones extends ChangeNotifier {
         .snapshots()
         .listen((r) {
       siguiendo = {for (final d in r.docs) d.id: d.data()['nombre'] as String? ?? ''};
+      cambio();
+    }, onError: ignorar));
+    _subs.add(_db
+        .collection('usuarios')
+        .doc(uid)
+        .collection('ocultos')
+        .snapshots()
+        .listen((r) {
+      ocultos = {for (final d in r.docs) d.id};
       cambio();
     }, onError: ignorar));
     _subs.add(_db.collection('suspendidos').doc(uid).snapshots().listen((d) {

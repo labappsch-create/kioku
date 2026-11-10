@@ -356,6 +356,11 @@ service cloud.firestore {
         allow read, write: if esDueno(uid);
       }
 
+      // Torneos que ocultó de sus listas.
+      match /ocultos/{cid} {
+        allow read, write: if esDueno(uid);
+      }
+
       // Dojos que sigue.
       match /siguiendo/{dojoId} {
         allow read, write: if esDueno(uid);
@@ -512,6 +517,11 @@ service cloud.firestore {
             || (request.resource.data.get('motivo', '') is string
                 && request.resource.data.get('motivo', '').size() > 0));
 
+      // Solo un torneo cancelado se puede borrar, y solo su organizador.
+      allow delete: if conCuenta()
+        && resource.data.organizadorUid == request.auth.uid
+        && resource.data.get('situacion', 'normal') == 'cancelada';
+
       match /categorias/{catId} {
         allow read: if conCuenta();
         allow create: if esOrganizadorDe(cid)
@@ -522,6 +532,9 @@ service cloud.firestore {
             && request.resource.data.inscritos == resource.data.inscritos)
           || cambioDeConteo(cid, catId);
         allow delete: if esOrganizadorDe(cid) && resource.data.inscritos == 0;
+        // Al borrar un torneo cancelado se borran todas sus categorías.
+        allow delete: if esOrganizadorDe(cid)
+          && get(/databases/$(database)/documents/competencias/$(cid)).data.get('situacion', 'normal') == 'cancelada';
       }
     }
 
@@ -536,6 +549,10 @@ service cloud.firestore {
             || resource.data.organizadorUid == request.auth.uid
             || esAdmin());
       allow create: if conCuenta() && inscripcionValida(iid, request.resource.data);
+      // Al borrar un torneo cancelado, el organizador borra sus inscripciones.
+      allow delete: if conCuenta()
+        && resource.data.organizadorUid == request.auth.uid
+        && get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)).data.get('situacion', 'normal') == 'cancelada';
       // Solo el organizador confirma.
       allow update: if conCuenta()
         && resource.data.organizadorUid == request.auth.uid

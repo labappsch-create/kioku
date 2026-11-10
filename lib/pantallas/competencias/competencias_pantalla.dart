@@ -5,10 +5,12 @@ import '../../modelos/competencia.dart';
 import '../../modelos/perfil.dart';
 import '../../servicios/competencias_servicio.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/sesion.dart';
 import '../admin/solicitar_organizador_pantalla.dart';
 import 'editar_competencia_pantalla.dart';
 import 'mis_competencias_pantalla.dart';
 import 'mis_inscripciones_pantalla.dart';
+import 'ocultar_torneo.dart';
 import 'ver_competencia_pantalla.dart';
 
 /// Pantalla 3: buscar competencias (pestaña "Competencias").
@@ -29,6 +31,7 @@ class _CompetenciasPantallaState extends State<CompetenciasPantalla> {
   String? _nivel;
   EstadoCompetencia? _estado;
   bool _verFiltros = false;
+  bool _verOcultos = false;
   late Future<List<Competencia>> _resultados;
 
   @override
@@ -225,34 +228,52 @@ class _CompetenciasPantallaState extends State<CompetenciasPantalla> {
                     ),
                   ]);
                 }
-                final lista = _ordenar(snap.data ?? const []);
+                final todas = _ordenar(snap.data ?? const []);
+                return ValueListenableBuilder<int>(
+                  valueListenable: Sesion.cambios,
+                  builder: (context, _, __) {
+                final nOcultos = todas.where((c) => estaOculto(c.id)).length;
+                final lista = _verOcultos
+                    ? todas
+                    : todas.where((c) => !estaOculto(c.id)).toList();
+                final pie = BotonVerOcultos(
+                  cantidad: nOcultos,
+                  mostrando: _verOcultos,
+                  alCambiar: () => setState(() => _verOcultos = !_verOcultos),
+                );
                 if (lista.isEmpty) {
-                  return ListView(children: const [
-                    Padding(
+                  return ListView(children: [
+                    const Padding(
                       padding: EdgeInsets.all(24),
                       child: Text('No se encontraron competencias.',
                           textAlign: TextAlign.center),
                     ),
+                    pie,
                   ]);
                 }
                 final ahora = DateTime.now();
                 return ListView.separated(
-                  itemCount: lista.length,
+                  itemCount: lista.length + 1,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, i) {
+                    if (i == lista.length) return pie;
                     final c = lista[i];
+                    final oculto = estaOculto(c.id);
                     return ListTile(
-                      leading: const Icon(Icons.emoji_events),
+                      leading: Icon(oculto ? Icons.visibility_off : Icons.emoji_events),
                       title: Text(c.nombre),
                       subtitle: Text('${nombreNivel(c.nivel)} · ${c.textoFechas}\n'
-                          '${c.lugar}\n${nombreEstado(c.estado(ahora))}'),
+                          '${c.lugar}\n${nombreEstado(c.estado(ahora))}'
+                          '${oculto ? ' · Oculto' : ''}'),
                       isThreeLine: true,
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: MenuOcultar(competencia: c),
                       onTap: () => _abrir(VerCompetenciaPantalla(
                           competenciaId: c.id,
                           uid: widget.uid,
                           perfil: widget.perfil)),
                     );
+                  },
+                );
                   },
                 );
               },
