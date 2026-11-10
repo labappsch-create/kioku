@@ -17,11 +17,14 @@ class Sesion {
   static final ValueNotifier<int> cambios = ValueNotifier<int>(0);
 
   static void iniciar(String nuevoUid, Perfil nuevoPerfil) {
+    if (uid != nuevoUid || relaciones == null) {
+      // Otra cuenta (o la primera vez): se limpia lo anterior.
+      cerrar();
+      uid = nuevoUid;
+      relaciones = Relaciones(nuevoUid)..addListener(_avisar);
+    }
+    // El perfil se guarda al final, para que cerrar() no lo borre.
     perfil = nuevoPerfil;
-    if (uid == nuevoUid && relaciones != null) return;
-    cerrar();
-    uid = nuevoUid;
-    relaciones = Relaciones(nuevoUid)..addListener(_avisar);
   }
 
   static void _avisar() => cambios.value++;

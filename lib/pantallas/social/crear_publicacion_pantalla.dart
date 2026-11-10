@@ -102,7 +102,10 @@ class _CrearPublicacionPantallaState extends State<CrearPublicacionPantalla> {
     }
     final uid = Sesion.uid;
     final perfil = Sesion.perfil;
-    if (uid == null || perfil == null) return;
+    if (uid == null || perfil == null) {
+      setState(() => _error = 'Todavía se está cargando tu perfil. Prueba de nuevo en un momento.');
+      return;
+    }
     setState(() {
       _guardando = true;
       _error = null;
