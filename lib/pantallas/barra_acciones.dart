@@ -48,7 +48,11 @@ class BotonCrear extends StatelessWidget {
   Future<void> _abrirMenu(BuildContext context) async {
     final uid = Sesion.uid;
     final perfil = Sesion.perfil;
-    if (uid == null || perfil == null) return;
+    if (uid == null || perfil == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Todavía se está cargando tu perfil. Prueba de nuevo en un momento.')));
+      return;
+    }
     final navegador = Navigator.of(context);
 
     final opcion = await showModalBottomSheet<String>(
