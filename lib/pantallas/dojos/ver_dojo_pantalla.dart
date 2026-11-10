@@ -10,6 +10,7 @@ import '../../servicios/perfiles_servicio.dart';
 import '../../servicios/sesion.dart';
 import '../../servicios/social_servicio.dart';
 import '../../widgets/avatar.dart';
+import '../../widgets/cabecera_perfil.dart';
 import '../../widgets/tarjeta_perfil.dart';
 import '../../widgets/tarjeta_publicacion.dart';
 import '../social/crear_publicacion_pantalla.dart';
@@ -54,22 +55,28 @@ class VerDojoPantalla extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(title: const Text('Dojo')),
           body: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              Row(children: [
-                Avatar(uid: '', nombre: dojo.nombre, radio: 32, urlFija: dojo.logoUrl),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(dojo.nombre, style: textos.headlineSmall),
-                      const SizedBox(height: 4),
-                      Text(dojo.organizacion, style: textos.titleSmall),
-                    ],
+              // La portada ocupa todo el ancho (anula el margen de los lados).
+              SizedBox(
+                height: altoPortada + 56,
+                child: OverflowBox(
+                  maxWidth: MediaQuery.sizeOf(context).width,
+                  child: SizedBox(
+                    width: MediaQuery.sizeOf(context).width,
+                    child: CabeceraPortada(
+                      portadaUrl: Future.value(dojo.portadaUrl),
+                      circulo: Avatar(
+                          uid: '', nombre: dojo.nombre, radio: 48, urlFija: dojo.logoUrl),
+                    ),
                   ),
                 ),
-              ]),
+              ),
+              Text(dojo.nombre,
+                  textAlign: TextAlign.center, style: textos.headlineSmall),
+              const SizedBox(height: 4),
+              Text(dojo.organizacion,
+                  textAlign: TextAlign.center, style: textos.titleSmall),
               const SizedBox(height: 12),
               if (!esSensei) _BotonSeguir(dojoId: dojoId, nombre: dojo.nombre),
               const SizedBox(height: 16),

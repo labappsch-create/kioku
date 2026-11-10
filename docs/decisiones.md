@@ -348,3 +348,14 @@ Se hace por partes:
 - El logo 記 aparece junto a "Kioku" arriba a la izquierda del Muro.
 - Se mantiene el ícono de Amigos arriba del Muro (con el número de solicitudes).
 
+### Parte 2: portada y reacciones
+
+- **Portada de perfil:** foto ancha arriba del perfil, con la foto de perfil redonda encima.
+  - La de un **menor** la ven solo sus amigos y su sensei. Los demás ven una franja de color.
+- **Portada del dojo:** la pone el sensei y la ve cualquiera. Al subirla aparece el aviso "Recuerda que esta foto la ve cualquier persona con cuenta".
+- **Reacciones** (una por persona, se puede cambiar o quitar):
+  👊 Oss · 👍 Me gusta · 💪 Fuerza · 🔥 Fuego · 👏 Aplausos · 😂 Me divierte · 😮 Me asombra · 😢 Me entristece
+  - La **principal** (toque rápido) es **👊 Oss**. Manteniendo presionado aparecen las demás.
+  - Los "me gusta" anteriores quedan como **👍 Me gusta**.
+  - Se muestran solo los **íconos más usados y el total** (sin lista de nombres).
+

@@ -239,6 +239,13 @@ service cloud.firestore {
         && (d.texto.size() > 0 || d.fotos.size() > 0 || d.get('competencia', null) != null);
     }
 
+    // Reacciones. Debe coincidir con lib/modelos/reaccion.dart.
+    function reaccionValida(d) {
+      return d.keys().hasOnly(['tipo', 'creado'])
+        && d.tipo in ['oss', 'megusta', 'fuerza', 'fuego', 'aplausos',
+                      'divierte', 'asombra', 'entristece'];
+    }
+
     function comentarioValido(d) {
       return d.autorUid == request.auth.uid
         && existePerfil(request.auth.uid)
@@ -481,6 +488,22 @@ service cloud.firestore {
       allow delete: if esDueno(uid);
     }
 
+    // Portada del perfil. La de un menor la ven solo sus amigos y su sensei.
+    match /portadas/{uid} {
+      allow read: if conCuenta()
+        && (resource == null
+            || resource.data.esMenor == false
+            || esDueno(uid)
+            || sonAmigos(request.auth.uid, uid)
+            || senseiDeMenor(uid)
+            || esAdmin());
+      allow create, update: if esDueno(uid)
+        && existePerfil(uid)
+        && request.resource.data.esMenor == perfilDe(uid).get('esMenor', true)
+        && request.resource.data.url is string;
+      allow delete: if esDueno(uid);
+    }
+
     match /solicitudes_amistad/{sid} {
       allow read: if conCuenta()
         && (resource.data.de == request.auth.uid || resource.data.para == request.auth.uid);
@@ -553,7 +576,8 @@ service cloud.firestore {
       match /meGusta/{uid} {
         allow read: if puedeVerPersona(autorUid,
           get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data);
-        allow create: if esDueno(uid) && noSuspendido()
+        allow create, update: if esDueno(uid) && noSuspendido()
+          && reaccionValida(request.resource.data)
           && puedeVerPersona(autorUid,
                get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data);
         allow delete: if esDueno(uid);
@@ -586,7 +610,8 @@ service cloud.firestore {
       match /meGusta/{uid} {
         allow read: if puedeVerDojo(dojoId,
           get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data);
-        allow create: if esDueno(uid) && noSuspendido()
+        allow create, update: if esDueno(uid) && noSuspendido()
+          && reaccionValida(request.resource.data)
           && puedeVerDojo(dojoId,
                get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data);
         allow delete: if esDueno(uid);

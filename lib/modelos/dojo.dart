@@ -103,6 +103,8 @@ class Dojo {
     required this.descripcion,
     this.logoUrl,
     this.logoRuta,
+    this.portadaUrl,
+    this.portadaRuta,
     this.mostrarDireccion = true,
     this.mostrarHorarios = true,
     this.mostrarTelefono = true,
@@ -129,6 +131,8 @@ class Dojo {
   final String descripcion;
   final String? logoUrl;
   final String? logoRuta;
+  final String? portadaUrl;
+  final String? portadaRuta;
 
   final bool mostrarDireccion;
   final bool mostrarHorarios;
@@ -139,6 +143,10 @@ class Dojo {
   final bool mostrarMiembros;
 
   String get organizacion => nombreOrganizacion(organizacionId, organizacionOtra);
+
+  /// Copia con otra portada.
+  Dojo conPortada(String? url, String? ruta) =>
+      Dojo.desdeMapa({...aMapa(), 'portadaUrl': url, 'portadaRuta': ruta});
 
   /// Copia con otro logo.
   Dojo conLogo(String? url, String? ruta) => Dojo(
@@ -159,6 +167,8 @@ class Dojo {
         descripcion: descripcion,
         logoUrl: url,
         logoRuta: ruta,
+        portadaUrl: portadaUrl,
+        portadaRuta: portadaRuta,
         mostrarDireccion: mostrarDireccion,
         mostrarHorarios: mostrarHorarios,
         mostrarTelefono: mostrarTelefono,
@@ -186,6 +196,8 @@ class Dojo {
         'descripcion': descripcion,
         'logoUrl': logoUrl,
         'logoRuta': logoRuta,
+        'portadaUrl': portadaUrl,
+        'portadaRuta': portadaRuta,
         'mostrarDireccion': mostrarDireccion,
         'mostrarHorarios': mostrarHorarios,
         'mostrarTelefono': mostrarTelefono,
@@ -214,6 +226,8 @@ class Dojo {
         descripcion: m['descripcion'] as String? ?? '',
         logoUrl: _textoOpcional(m['logoUrl']),
         logoRuta: _textoOpcional(m['logoRuta']),
+        portadaUrl: _textoOpcional(m['portadaUrl']),
+        portadaRuta: _textoOpcional(m['portadaRuta']),
         mostrarDireccion: m['mostrarDireccion'] as bool? ?? true,
         mostrarHorarios: m['mostrarHorarios'] as bool? ?? true,
         mostrarTelefono: m['mostrarTelefono'] as bool? ?? true,
@@ -235,6 +249,7 @@ class Dojo {
         'region': region,
         'ciudad': ciudad,
         if (logoUrl != null) 'logoUrl': logoUrl,
+        if (portadaUrl != null) 'portadaUrl': portadaUrl,
         if (mostrarDireccion) 'direccion': direccion,
         if (mostrarHorarios) 'horarios': [for (final c in horarios) c.aMapa()],
         if (mostrarTelefono) 'telefono': telefono,
@@ -272,6 +287,7 @@ class DojoPublico {
   String? get descripcion => _textoOpcional(datos['descripcion']);
   bool get mostrarMiembros => datos['mostrarMiembros'] as bool? ?? false;
   String? get logoUrl => _textoOpcional(datos['logoUrl']);
+  String? get portadaUrl => _textoOpcional(datos['portadaUrl']);
 
   String get lugar =>
       [ciudad, region, pais].where((t) => t.isNotEmpty).join(', ');

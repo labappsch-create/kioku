@@ -24,7 +24,7 @@ import 'social/crear_publicacion_pantalla.dart';
 import 'social/muro_pantalla.dart';
 import 'social/ver_publicacion_pantalla.dart';
 import '../servicios/sesion.dart';
-import '../widgets/avatar.dart';
+import '../widgets/cabecera_perfil.dart';
 import '../widgets/tarjeta_publicacion.dart';
 import 'editar_perfil_pantalla.dart';
 import 'ver_perfil_pantalla.dart';
@@ -335,8 +335,14 @@ class MiPerfilPantalla extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.zero,
             children: [
+              CabeceraPerfil(uid: uid, nombre: publico.nombre),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
               Card(
                 color: Theme.of(context).colorScheme.secondaryContainer,
                 child: const Padding(
@@ -344,8 +350,6 @@ class MiPerfilPantalla extends StatelessWidget {
                   child: Text('Así ven tu perfil los demás.'),
                 ),
               ),
-              const SizedBox(height: 12),
-              Center(child: Avatar(uid: uid, nombre: publico.nombre, radio: 44)),
               const SizedBox(height: 12),
               TarjetaPerfil(perfil: publico),
               const SizedBox(height: 16),
@@ -389,6 +393,9 @@ class MiPerfilPantalla extends StatelessWidget {
                     },
                   ),
                 )),
+              ),
+                  ],
+                ),
               ),
             ],
           );

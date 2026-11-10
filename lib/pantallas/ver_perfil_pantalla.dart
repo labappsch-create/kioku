@@ -7,7 +7,7 @@ import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../servicios/sesion.dart';
 import '../servicios/social_servicio.dart';
-import '../widgets/avatar.dart';
+import '../widgets/cabecera_perfil.dart';
 import '../widgets/denunciar.dart';
 import '../widgets/tarjeta_perfil.dart';
 import '../widgets/tarjeta_publicacion.dart';
@@ -39,15 +39,24 @@ class VerPerfilPantalla extends StatelessWidget {
           return ValueListenableBuilder<int>(
             valueListenable: Sesion.cambios,
             builder: (context, _, __) => ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(bottom: 24),
               children: [
-                Center(child: Avatar(uid: uid, nombre: p.nombre, radio: 44)),
-                const SizedBox(height: 12),
-                if (uid != Sesion.uid) _Relacion(perfil: p),
-                const SizedBox(height: 8),
-                TarjetaPerfil(perfil: p),
-                const SizedBox(height: 24),
-                Text('Publicaciones', style: Theme.of(context).textTheme.titleMedium),
+                CabeceraPerfil(uid: uid, nombre: p.nombre),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (uid != Sesion.uid) _Relacion(perfil: p),
+                      const SizedBox(height: 8),
+                      TarjetaPerfil(perfil: p),
+                      const SizedBox(height: 24),
+                      Text('Publicaciones',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
                 _Publicaciones(uid: uid),
               ],
             ),

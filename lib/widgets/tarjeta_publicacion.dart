@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../modelos/competencia.dart' show nombreNivel;
 import '../modelos/publicacion.dart';
+import '../modelos/reaccion.dart';
 import '../servicios/errores.dart';
 import '../servicios/sesion.dart';
 import '../servicios/social_servicio.dart';
@@ -61,7 +62,6 @@ class TarjetaPublicacion extends StatelessWidget {
       }
     }
 
-    const lado = EdgeInsets.symmetric(horizontal: 12);
     final contenido = Material(
       color: Colors.white,
       child: InkWell(
@@ -160,15 +160,7 @@ class TarjetaPublicacion extends StatelessWidget {
                   ),
                 ),
               ),
-            const Padding(
-              padding: lado,
-              child: Divider(height: 16),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: _Acciones(
-                  publicacion: p, enDetalle: enDetalle, puedeModerar: puedeModerar),
-            ),
+            _Acciones(publicacion: p, enDetalle: enDetalle, puedeModerar: puedeModerar),
           ],
         ),
       ),
@@ -194,41 +186,156 @@ class _Acciones extends StatelessWidget {
   final bool enDetalle;
   final bool puedeModerar;
 
+  Future<void> _reaccionar(BuildContext context, String? tipo) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    try {
+      await SocialServicio().reaccionar(publicacion.ref, Sesion.uid ?? '', tipo);
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
+  /// Fila con las 8 reacciones, sobre el botón (como en Facebook).
+  Future<void> _elegir(BuildContext context, String? actual) async {
+    final caja = context.findRenderObject() as RenderBox?;
+    final arriba = caja == null ? 300.0 : caja.localToGlobal(Offset.zero).dy;
+    final elegida = await showDialog<String>(
+      context: context,
+      barrierColor: Colors.black12,
+      builder: (ctx) => Stack(children: [
+        Positioned(
+          left: 8,
+          right: 8,
+          top: (arriba - 64).clamp(8.0, double.infinity),
+          child: Center(
+            child: Material(
+              elevation: 6,
+              borderRadius: BorderRadius.circular(32),
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  for (final r in reacciones)
+                    Tooltip(
+                      message: r.nombre,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: () => Navigator.of(ctx).pop(r.id),
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: r.id == actual
+                              ? BoxDecoration(
+                                  color: grisSeparador,
+                                  borderRadius: BorderRadius.circular(24))
+                              : null,
+                          child: Text(r.emoji, style: const TextStyle(fontSize: 28)),
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+    if (elegida != null && context.mounted) await _reaccionar(context, elegida);
+  }
+
   @override
   Widget build(BuildContext context) {
     final yo = Sesion.uid ?? '';
     final servicio = SocialServicio();
-    return Row(children: [
-      StreamBuilder<Set<String>>(
-        stream: servicio.meGusta(publicacion.ref),
-        builder: (context, snap) {
-          final gustan = snap.data ?? const <String>{};
-          final mio = gustan.contains(yo);
-          return TextButton.icon(
-            icon: Icon(mio ? Icons.thumb_up : Icons.thumb_up_outlined),
-            label: Text('${gustan.length}'),
-            onPressed: () async {
-              final mensajes = ScaffoldMessenger.of(context);
-              try {
-                await servicio.cambiarMeGusta(publicacion.ref, yo, !mio);
-              } catch (e) {
-                mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
-              }
-            },
-          );
-        },
-      ),
-      if (!enDetalle)
-        FutureBuilder<int>(
-          future: servicio.cuantosComentarios(publicacion.ref),
-          builder: (context, snap) => TextButton.icon(
-            icon: const Icon(Icons.mode_comment_outlined),
-            label: Text('${snap.data ?? ''}'),
-            onPressed: () =>
-                Navegacion.abrirPublicacion?.call(context, publicacion, puedeModerar),
-          ),
-        ),
-    ]);
+    final textos = Theme.of(context).textTheme;
+    return StreamBuilder<Map<String, String>>(
+      stream: servicio.reacciones(publicacion.ref),
+      builder: (context, snap) {
+        final todas = snap.data ?? const <String, String>{};
+        final mia = todas[yo];
+        final miReaccion = mia == null ? null : reaccionPorId(mia);
+
+        // Las 3 reacciones más usadas y el total.
+        final conteo = <String, int>{};
+        for (final t in todas.values) {
+          conteo[t] = (conteo[t] ?? 0) + 1;
+        }
+        final top = conteo.keys.toList()
+          ..sort((a, b) => conteo[b]!.compareTo(conteo[a]!));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (todas.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Text(
+                  '${top.take(3).map((t) => reaccionPorId(t).emoji).join()}  ${todas.length}',
+                  style: textos.bodySmall?.copyWith(fontSize: 14),
+                ),
+              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Divider(height: 12),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+              child: Row(children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    // Toque: pone 👊 Oss o quita la reacción. Mantener: elegir.
+                    onTap: () =>
+                        _reaccionar(context, mia == null ? reaccionPrincipal : null),
+                    onLongPress: () => _elegir(context, mia),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text(miReaccion?.emoji ?? '👊',
+                            style: TextStyle(
+                                fontSize: 18,
+                                color: miReaccion == null ? Colors.black54 : null)),
+                        const SizedBox(width: 6),
+                        Text(
+                          miReaccion?.nombre ?? 'Oss',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: miReaccion == null ? Colors.black54 : rojoKioku,
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+                if (!enDetalle)
+                  Expanded(
+                    child: FutureBuilder<int>(
+                      future: servicio.cuantosComentarios(publicacion.ref),
+                      builder: (context, c) => InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => Navegacion.abrirPublicacion
+                            ?.call(context, publicacion, puedeModerar),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            const Icon(Icons.mode_comment_outlined,
+                                size: 18, color: Colors.black54),
+                            const SizedBox(width: 6),
+                            Text(
+                              (c.data ?? 0) == 0 ? 'Comentar' : 'Comentar (${c.data})',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, color: Colors.black54),
+                            ),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
