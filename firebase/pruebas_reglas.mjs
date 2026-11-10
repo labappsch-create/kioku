@@ -64,6 +64,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await db.doc('muros_dojo/d1/publicaciones/d_miem').set(pub('kenji', 'Dojo Uno', 'miembros'));
   await db.doc('fotos_perfil/mia').set({ url: 'x', esMenor: true });
   await db.doc('fotos_perfil/ana').set({ url: 'y', esMenor: false });
+  await db.doc('portadas/mia').set({ url: 'p', esMenor: true });
+  await db.doc('portadas/ana').set({ url: 'q', esMenor: false });
 });
 
 const db = (uid) => env.authenticatedContext(uid).firestore();
@@ -170,6 +172,31 @@ await prueba('Sensei ve la foto de perfil de su alumna menor', true,
   db('kenji').doc('fotos_perfil/mia').get());
 await prueba('Cualquiera ve la foto de perfil de un adulto', true,
   db('sara').doc('fotos_perfil/ana').get());
+
+// ---------- Portadas ----------
+await prueba('Desconocido NO ve la portada de una menor', false,
+  db('sara').doc('portadas/mia').get());
+await prueba('Sensei ve la portada de su alumna menor', true,
+  db('kenji').doc('portadas/mia').get());
+await prueba('Cualquiera ve la portada de un adulto', true,
+  db('sara').doc('portadas/ana').get());
+await prueba('Menor no puede marcar su portada como de adulto', false,
+  db('mia').doc('portadas/mia').set({ url: 'z', esMenor: false }));
+
+// ---------- Reacciones ----------
+const rx = (tipo) => ({ tipo });
+await prueba('Amigo reacciona con Oss', true,
+  db('beto').doc('muros/ana/publicaciones/p_amigos/meGusta/beto').set(rx('oss')));
+await prueba('Amigo cambia su reacción a Fuego', true,
+  db('beto').doc('muros/ana/publicaciones/p_amigos/meGusta/beto').set(rx('fuego')));
+await prueba('Reacción inventada no se acepta', false,
+  db('beto').doc('muros/ana/publicaciones/p_amigos/meGusta/beto').set(rx('caca')));
+await prueba('Nadie reacciona a nombre de otro', false,
+  db('sara').doc('muros/ana/publicaciones/p_todos/meGusta/beto').set(rx('oss')));
+await prueba('Desconocido NO reacciona a publicación solo para amigos', false,
+  db('sara').doc('muros/ana/publicaciones/p_amigos/meGusta/sara').set(rx('oss')));
+await prueba('Seguidor reacciona a publicación del dojo para seguidores', true,
+  db('leo').doc('muros_dojo/d1/publicaciones/d_seg/meGusta/leo').set(rx('aplausos')));
 
 // ---------- Fotos (Storage) ----------
 await prueba('Subir foto a mi publicación', true,

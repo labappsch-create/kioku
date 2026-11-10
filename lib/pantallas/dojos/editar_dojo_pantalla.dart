@@ -63,6 +63,10 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
   FotoElegida? _logoNuevo;
   bool _quitarLogo = false;
 
+  // Portada (opcional).
+  FotoElegida? _portadaNueva;
+  bool _quitarPortada = false;
+
   @override
   void initState() {
     super.initState();
@@ -176,6 +180,8 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
       mostrarMiembros: _mMiembros,
       logoUrl: _quitarLogo ? null : widget.dojo?.logoUrl,
       logoRuta: _quitarLogo ? null : widget.dojo?.logoRuta,
+      portadaUrl: _quitarPortada ? null : widget.dojo?.portadaUrl,
+      portadaRuta: _quitarPortada ? null : widget.dojo?.portadaRuta,
     );
 
     setState(() => _guardando = true);
@@ -189,14 +195,26 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
         id = widget.dojoId!;
         await _servicio.actualizar(id, dojo);
       }
+      var actual = dojo;
       final rutaVieja = widget.dojo?.logoRuta;
       if (_logoNuevo != null) {
         final ruta = 'dojos/$id/logo_${DateTime.now().millisecondsSinceEpoch}.${_logoNuevo!.extension}';
         final url = await fotos.subir(ruta, _logoNuevo!);
-        await _servicio.actualizar(id, dojo.conLogo(url, ruta));
+        actual = actual.conLogo(url, ruta);
+        await _servicio.actualizar(id, actual);
         if (rutaVieja != null) await fotos.borrar(rutaVieja);
       } else if (_quitarLogo && rutaVieja != null) {
         await fotos.borrar(rutaVieja);
+      }
+      final portadaVieja = widget.dojo?.portadaRuta;
+      if (_portadaNueva != null) {
+        final ruta = 'dojos/$id/portada_${DateTime.now().millisecondsSinceEpoch}.${_portadaNueva!.extension}';
+        final url = await fotos.subir(ruta, _portadaNueva!);
+        actual = actual.conPortada(url, ruta);
+        await _servicio.actualizar(id, actual);
+        if (portadaVieja != null) await fotos.borrar(portadaVieja);
+      } else if (_quitarPortada && portadaVieja != null) {
+        await fotos.borrar(portadaVieja);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -276,6 +294,27 @@ class _EditarDojoPantallaState extends State<EditarDojoPantalla> {
                 alQuitar: () => setState(() {
                   _logoNuevo = null;
                   _quitarLogo = true;
+                }),
+              ),
+              const SizedBox(height: 12),
+              _SeccionPortada(
+                urlActual: _quitarPortada ? null : widget.dojo?.portadaUrl,
+                nueva: _portadaNueva,
+                alElegir: () async {
+                  final mensajes = ScaffoldMessenger.of(context);
+                  final f = await FotosServicio().elegirUna(lado: 1600);
+                  if (f == null) return;
+                  setState(() {
+                    _portadaNueva = f;
+                    _quitarPortada = false;
+                  });
+                  mensajes.showSnackBar(const SnackBar(
+                      content: Text(
+                          'Recuerda que esta foto la ve cualquier persona con cuenta.')));
+                },
+                alQuitar: () => setState(() {
+                  _portadaNueva = null;
+                  _quitarPortada = true;
                 }),
               ),
               const SizedBox(height: 16),
@@ -549,6 +588,53 @@ class _SeccionLogo extends StatelessWidget {
         ]),
       ),
     ]);
+  }
+}
+
+/// Portada del dojo (opcional). La ve cualquier persona con cuenta.
+class _SeccionPortada extends StatelessWidget {
+  const _SeccionPortada({
+    required this.urlActual,
+    required this.nueva,
+    required this.alElegir,
+    required this.alQuitar,
+  });
+
+  final String? urlActual;
+  final FotoElegida? nueva;
+  final VoidCallback alElegir;
+  final VoidCallback alQuitar;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget? vista;
+    if (nueva != null) {
+      vista = Image.memory(nueva!.bytes, height: 110, width: double.infinity, fit: BoxFit.cover);
+    } else if (urlActual != null) {
+      vista = Image.network(urlActual!, height: 110, width: double.infinity, fit: BoxFit.cover);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (vista != null) ...[
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: vista),
+          const SizedBox(height: 8),
+        ],
+        Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.panorama),
+            label: Text(vista == null ? 'Agregar portada' : 'Cambiar portada'),
+            onPressed: alElegir,
+          ),
+          if (vista != null) TextButton(onPressed: alQuitar, child: const Text('Quitar')),
+        ]),
+        const Text(
+          'La portada la ve cualquier persona con cuenta. Si es una foto grupal con '
+          'niños, tenlo en cuenta.',
+          style: TextStyle(fontSize: 12),
+        ),
+      ],
+    );
   }
 }
 

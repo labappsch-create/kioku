@@ -5,7 +5,11 @@ import 'package:flutter/foundation.dart';
 
 import '../modelos/perfil.dart';
 import '../modelos/publicacion.dart';
+import '../modelos/reaccion.dart';
 import 'fotos_servicio.dart';
+
+/// Avisa cuando cambia una foto de perfil o una portada, para redibujarlas.
+final ValueNotifier<int> fotosCambiadas = ValueNotifier<int>(0);
 
 String parId(String a, String b) => a.compareTo(b) < 0 ? '${a}_$b' : '${b}_$a';
 
@@ -378,14 +382,59 @@ class SocialServicio {
 
   Future<void> borrarComentario(Comentario c) => c.ref.delete();
 
-  /// uids de quienes dieron "me gusta".
-  Stream<Set<String>> meGusta(DocumentReference<Map<String, dynamic>> pub) =>
-      pub.collection('meGusta').snapshots().map((r) => {for (final d in r.docs) d.id});
+  /// Reacciones: uid → tipo. Los "me gusta" de antes cuentan como 👍.
+  /// (Se guardan en la subcolección `meGusta`, la misma de antes.)
+  Stream<Map<String, String>> reacciones(DocumentReference<Map<String, dynamic>> pub) =>
+      pub.collection('meGusta').snapshots().map((r) => {
+            for (final d in r.docs)
+              d.id: d.data()['tipo'] as String? ?? reaccionAntigua,
+          });
 
-  Future<void> cambiarMeGusta(
-      DocumentReference<Map<String, dynamic>> pub, String uid, bool dar) {
+  /// Pone o cambia la reacción. Con [tipo] null, la quita.
+  Future<void> reaccionar(
+      DocumentReference<Map<String, dynamic>> pub, String uid, String? tipo) {
     final ref = pub.collection('meGusta').doc(uid);
-    return dar ? ref.set({'creado': FieldValue.serverTimestamp()}) : ref.delete();
+    if (tipo == null) return ref.delete();
+    return ref.set({'tipo': tipo, 'creado': FieldValue.serverTimestamp()});
+  }
+
+  // ---------- Portadas ----------
+
+  static final Map<String, Future<String?>> _cachePortadas = {};
+
+  /// Enlace de la portada, o null si no tiene o no se puede ver.
+  Future<String?> portada(String uid) =>
+      _cachePortadas.putIfAbsent(uid, () async {
+        try {
+          final d = await _db.collection('portadas').doc(uid).get();
+          return d.data()?['url'] as String?;
+        } catch (_) {
+          return null;
+        }
+      });
+
+  Future<void> guardarPortada(String uid, bool esMenor, FotoElegida foto) async {
+    final anterior = await _db.collection('portadas').doc(uid).get();
+    final ruta = 'perfiles/$uid/portada_${idViejoPrimero()}.${foto.extension}';
+    final url = await _fotos.subir(ruta, foto);
+    await _db.collection('portadas').doc(uid).set({
+      'url': url,
+      'ruta': ruta,
+      'esMenor': esMenor,
+    });
+    _cachePortadas.remove(uid);
+    fotosCambiadas.value++;
+    final rutaVieja = anterior.data()?['ruta'] as String?;
+    if (rutaVieja != null) await _fotos.borrar(rutaVieja);
+  }
+
+  Future<void> quitarPortada(String uid) async {
+    final d = await _db.collection('portadas').doc(uid).get();
+    await _db.collection('portadas').doc(uid).delete();
+    _cachePortadas.remove(uid);
+    fotosCambiadas.value++;
+    final ruta = d.data()?['ruta'] as String?;
+    if (ruta != null) await _fotos.borrar(ruta);
   }
 
   // ---------- Fotos de perfil ----------
@@ -413,6 +462,7 @@ class SocialServicio {
       'esMenor': esMenor,
     });
     _cacheFotos.remove(uid);
+    fotosCambiadas.value++;
     final rutaVieja = anterior.data()?['ruta'] as String?;
     if (rutaVieja != null) await _fotos.borrar(rutaVieja);
   }
@@ -421,16 +471,19 @@ class SocialServicio {
     final d = await _db.collection('fotos_perfil').doc(uid).get();
     await _db.collection('fotos_perfil').doc(uid).delete();
     _cacheFotos.remove(uid);
+    fotosCambiadas.value++;
     final ruta = d.data()?['ruta'] as String?;
     if (ruta != null) await _fotos.borrar(ruta);
   }
 
-  /// Mantiene al día si la foto es de un menor (al cumplir 18).
+  /// Mantiene al día si la foto y la portada son de un menor (al cumplir 18).
   Future<void> actualizarEdadFoto(String uid, bool esMenor) async {
-    final ref = _db.collection('fotos_perfil').doc(uid);
-    final d = await ref.get();
-    if (d.exists && d.data()?['esMenor'] != esMenor) {
-      await ref.update({'esMenor': esMenor});
+    for (final coleccion in ['fotos_perfil', 'portadas']) {
+      final ref = _db.collection(coleccion).doc(uid);
+      final d = await ref.get();
+      if (d.exists && d.data()?['esMenor'] != esMenor) {
+        await ref.update({'esMenor': esMenor});
+      }
     }
   }
 

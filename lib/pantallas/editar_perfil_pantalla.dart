@@ -670,8 +670,29 @@ class _FotoPerfilState extends State<_FotoPerfil> {
                 child: const Text('Quitar'),
               ),
             ]),
+            Wrap(spacing: 8, children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.panorama),
+                label: const Text('Cambiar portada'),
+                onPressed: _trabajando
+                    ? null
+                    : () async {
+                        final f = await FotosServicio().elegirUna(lado: 1600);
+                        if (f == null) return;
+                        await _hacer(() => servicio.guardarPortada(uid, esMenor, f),
+                            'Portada guardada');
+                      },
+              ),
+              TextButton(
+                onPressed: _trabajando
+                    ? null
+                    : () => _hacer(() => servicio.quitarPortada(uid), 'Portada quitada'),
+                child: const Text('Quitar'),
+              ),
+            ]),
             if (esMenor)
-              const Text('Como eres menor de 18, tu foto la ven solo tus amigos y tu sensei.',
+              const Text(
+                  'Como eres menor de 18, tu foto y tu portada las ven solo tus amigos y tu sensei.',
                   style: TextStyle(fontSize: 12)),
           ],
         ),
