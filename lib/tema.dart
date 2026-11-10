@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 const Color rojoKioku = Color(0xFFC8102E);
 const Color negroKioku = Color(0xFF111111);
 
+/// Franja gris que separa las publicaciones.
+const Color grisSeparador = Color(0xFFE4E6EB);
+
 ThemeData temaKioku() {
   final esquema = ColorScheme.fromSeed(seedColor: rojoKioku).copyWith(
     primary: rojoKioku,

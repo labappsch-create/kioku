@@ -326,3 +326,23 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 - **Créditos:** pantalla **"Acerca de Kioku"** en Mi perfil: significado del nombre, versión y "Ícono e imagen de bienvenida creados con Grok" (lo piden las condiciones de Grok).
 - Condiciones de Grok: las imágenes son del usuario y se pueden usar comercialmente, con atribución. Antes de publicar, consultar a un abogado de propiedad intelectual por el uso descriptivo de "Kyokushin" en la app.
 - Los íconos cuadrados se generan desde `assets/icono/original.jpg` con `java herramientas/Iconos.java`.
+
+## Estilo moderno (inspirado en Facebook, con diseño propio)
+
+Se hace por partes:
+
+1. **Aspecto** ← en curso
+2. Portada de perfil y reacciones variadas
+3. Notificaciones dentro de la app (campanita)
+4. Mensajes privados (con reglas para menores)
+
+### Parte 1: aspecto
+
+- **Lupa arriba:** busca **todo junto** (personas, dojos y torneos). Se quita la pestaña **Gente**. Abajo quedan 5 pestañas: Muro, Mi perfil, Dojos, Torneos y Rankings.
+- **Botón +** arriba: menú con atajos. Publicación, Publicación con foto, Publicar como dojo (solo senseis), Crear torneo (solo quien puede) y Crear dojo (solo entrenadores).
+- El **+** y la **lupa** aparecen solo en el **Muro** y en **Mi perfil**. El Muro dice "Kioku" arriba a la izquierda.
+- **Al bajar por el Muro** se esconden la barra de arriba y la de abajo, y vuelven al subir un poco.
+- **Publicaciones de borde a borde**, separadas por una franja gris clara. Las fotos ocupan todo el ancho.
+- **Cajita para publicar** arriba del Muro: tu foto, el texto **"¿Qué entrenaste hoy?"** y un ícono de foto.
+- Se quita el botón rojo flotante "Publicar".
+

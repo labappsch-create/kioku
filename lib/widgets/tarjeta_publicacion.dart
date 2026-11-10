@@ -5,6 +5,7 @@ import '../modelos/publicacion.dart';
 import '../servicios/errores.dart';
 import '../servicios/sesion.dart';
 import '../servicios/social_servicio.dart';
+import '../tema.dart';
 import 'avatar.dart';
 import 'denunciar.dart';
 
@@ -60,18 +61,19 @@ class TarjetaPublicacion extends StatelessWidget {
       }
     }
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    const lado = EdgeInsets.symmetric(horizontal: 12);
+    final contenido = Material(
+      color: Colors.white,
       child: InkWell(
         onTap: enDetalle
             ? null
             : () => Navegacion.abrirPublicacion?.call(context, p, puedeModerar),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 0, 0),
+              child: Row(children: [
                 InkWell(
                   onTap: () => p.deDojo
                       ? Navegacion.abrirDojo?.call(context, p.duenoId)
@@ -85,16 +87,28 @@ class TarjetaPublicacion extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(p.autorNombre, style: textos.titleSmall),
-                      Text(
-                        '${haceCuanto(p.creado)}${p.editado ? ' · editada' : ''}'
-                        ' · ${nombreVisibilidad(p.visibilidad)}',
-                        style: textos.bodySmall,
-                      ),
+                      Text(p.autorNombre,
+                          style: textos.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                      Row(children: [
+                        Text(
+                          '${haceCuanto(p.creado)}${p.editado ? ' · editada' : ''} · ',
+                          style: textos.bodySmall,
+                        ),
+                        Icon(
+                          p.visibilidad == visibleTodos
+                              ? Icons.public
+                              : (p.visibilidad == visibleMiembros
+                                  ? Icons.lock
+                                  : Icons.group),
+                          size: 14,
+                          color: textos.bodySmall?.color,
+                        ),
+                      ]),
                     ],
                   ),
                 ),
                 PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_horiz),
                   onSelected: (v) async {
                     switch (v) {
                       case 'editar':
@@ -119,43 +133,52 @@ class TarjetaPublicacion extends StatelessWidget {
                   ],
                 ),
               ]),
-              if (p.texto.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(p.texto),
-                ),
-              ],
-              if (p.fotos.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _Fotos(fotos: p.fotos),
-                ),
-              ],
-              if (p.torneo != null) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Card(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    child: ListTile(
-                      leading: const Icon(Icons.emoji_events),
-                      title: Text(p.torneo!.nombre),
-                      subtitle: Text('${nombreNivel(p.torneo!.nivel)} · '
-                          '${p.torneo!.fechas}\n${p.torneo!.lugar}'),
-                      isThreeLine: true,
-                      onTap: () =>
-                          Navegacion.abrirCompetencia?.call(context, p.torneo!.id),
-                    ),
+            ),
+            if (p.texto.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Text(p.texto, style: textos.bodyLarge),
+              ),
+            if (p.fotos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _Fotos(fotos: p.fotos),
+            ],
+            if (p.torneo != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Material(
+                  color: grisSeparador,
+                  borderRadius: BorderRadius.circular(8),
+                  child: ListTile(
+                    leading: const Icon(Icons.emoji_events, color: rojoKioku),
+                    title: Text(p.torneo!.nombre),
+                    subtitle: Text('${nombreNivel(p.torneo!.nivel)} · '
+                        '${p.torneo!.fechas}\n${p.torneo!.lugar}'),
+                    isThreeLine: true,
+                    onTap: () =>
+                        Navegacion.abrirCompetencia?.call(context, p.torneo!.id),
                   ),
                 ),
-              ],
-              _Acciones(publicacion: p, enDetalle: enDetalle, puedeModerar: puedeModerar),
-            ],
-          ),
+              ),
+            const Padding(
+              padding: lado,
+              child: Divider(height: 16),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: _Acciones(
+                  publicacion: p, enDetalle: enDetalle, puedeModerar: puedeModerar),
+            ),
+          ],
         ),
       ),
+    );
+
+    // Franja gris de separación (no en la pantalla de la publicación).
+    if (enDetalle) return contenido;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [contenido, const SizedBox(height: 8, child: ColoredBox(color: grisSeparador))],
     );
   }
 }
@@ -232,31 +255,29 @@ class _Fotos extends StatelessWidget {
 
   Widget _foto(BuildContext context, int i, {double? alto}) => GestureDetector(
         onTap: () => _ver(context, i),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            fotos[i].url,
-            height: alto,
-            width: double.infinity,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              height: alto ?? 120,
-              color: Colors.black12,
-              child: const Center(child: Icon(Icons.broken_image)),
-            ),
+        child: Image.network(
+          fotos[i].url,
+          height: alto,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            height: alto ?? 120,
+            color: Colors.black12,
+            child: const Center(child: Icon(Icons.broken_image)),
           ),
         ),
       );
 
   @override
   Widget build(BuildContext context) {
-    if (fotos.length == 1) return _foto(context, 0, alto: 260);
+    if (fotos.length == 1) return _foto(context, 0, alto: 320);
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 4,
-      crossAxisSpacing: 4,
+      padding: EdgeInsets.zero,
+      mainAxisSpacing: 2,
+      crossAxisSpacing: 2,
       children: [for (var i = 0; i < fotos.length; i++) _foto(context, i)],
     );
   }

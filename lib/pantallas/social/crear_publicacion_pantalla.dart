@@ -23,6 +23,7 @@ class CrearPublicacionPantalla extends StatefulWidget {
     this.editar,
     this.dojo,
     this.torneo,
+    this.elegirFotosAlAbrir = false,
   });
 
   /// Si no es null, se edita esta publicación.
@@ -33,6 +34,9 @@ class CrearPublicacionPantalla extends StatefulWidget {
 
   /// Torneo compartido (botón "Compartir en el muro").
   final TorneoCompartido? torneo;
+
+  /// true para abrir la galería apenas se abre la pantalla.
+  final bool elegirFotosAlAbrir;
 
   @override
   State<CrearPublicacionPantalla> createState() => _CrearPublicacionPantallaState();
@@ -67,6 +71,11 @@ class _CrearPublicacionPantallaState extends State<CrearPublicacionPantalla> {
     _conservadas = [...?e?.fotos];
     _visibilidad = e?.visibilidad ?? (_deDojo ? visibleSeguidores : visibleAmigos);
     if (_esMenor) _visibilidad = visibleAmigos;
+    if (widget.elegirFotosAlAbrir) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _agregarFotos();
+      });
+    }
   }
 
   @override
