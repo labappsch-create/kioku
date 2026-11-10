@@ -332,8 +332,8 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 Se hace por partes:
 
 1. **Aspecto** ✅ terminado (versión de prueba 56)
-2. Portada de perfil y reacciones variadas ← siguiente
-3. Notificaciones dentro de la app (campanita)
+2. Portada de perfil y reacciones variadas ✅ terminado (versión de prueba 60)
+3. Notificaciones dentro de la app (campanita) ← siguiente
 4. Mensajes privados (con reglas para menores)
 
 ### Parte 1: aspecto
