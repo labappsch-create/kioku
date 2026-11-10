@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../modelos/competencia.dart' show nombreNivel;
 import '../modelos/publicacion.dart';
 import '../modelos/reaccion.dart';
 import '../servicios/errores.dart';
+import '../servicios/notificaciones_servicio.dart';
 import '../servicios/sesion.dart';
 import '../servicios/social_servicio.dart';
 import '../tema.dart';
@@ -186,10 +189,15 @@ class _Acciones extends StatelessWidget {
   final bool enDetalle;
   final bool puedeModerar;
 
-  Future<void> _reaccionar(BuildContext context, String? tipo) async {
+  /// [nueva] es true si antes no había reaccionado (solo entonces se avisa).
+  Future<void> _reaccionar(BuildContext context, String? tipo, {bool nueva = false}) async {
     final mensajes = ScaffoldMessenger.of(context);
+    final yo = Sesion.uid ?? '';
     try {
-      await SocialServicio().reaccionar(publicacion.ref, Sesion.uid ?? '', tipo);
+      await SocialServicio().reaccionar(publicacion.ref, yo, tipo);
+      if (nueva && tipo != null) {
+        unawaited(NotificacionesServicio().reaccion(yo, publicacion));
+      }
     } catch (e) {
       mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
     }
@@ -239,7 +247,9 @@ class _Acciones extends StatelessWidget {
         ),
       ]),
     );
-    if (elegida != null && context.mounted) await _reaccionar(context, elegida);
+    if (elegida != null && context.mounted) {
+      await _reaccionar(context, elegida, nueva: actual == null);
+    }
   }
 
   @override
@@ -284,8 +294,9 @@ class _Acciones extends StatelessWidget {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
                     // Toque: pone 👊 Oss o quita la reacción. Mantener: elegir.
-                    onTap: () =>
-                        _reaccionar(context, mia == null ? reaccionPrincipal : null),
+                    onTap: () => _reaccionar(
+                        context, mia == null ? reaccionPrincipal : null,
+                        nueva: mia == null),
                     onLongPress: () => _elegir(context, mia),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),

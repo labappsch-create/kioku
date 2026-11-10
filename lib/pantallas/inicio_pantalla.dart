@@ -3,14 +3,17 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../modelos/competencia.dart';
 import '../modelos/perfil.dart';
 import '../servicios/admin_servicio.dart';
 import '../servicios/competencias_servicio.dart';
+import '../servicios/dojos_servicio.dart';
+import '../servicios/notificaciones_servicio.dart';
+import '../servicios/social_servicio.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
 import 'acerca_pantalla.dart';
+import 'notificaciones_pantalla.dart';
 import 'barra_acciones.dart';
 import 'admin/admin_pantalla.dart';
 import 'competencias/competencias_pantalla.dart';
@@ -61,67 +64,41 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
     if (perfil == null) return null;
     // Recalcula la parte pública y revisa la respuesta del dojo.
     final (actual, aviso) = await _servicio.sincronizar(widget.uid, perfil);
-    // Pasa al historial las competencias terminadas. Si falla, no bloquea.
-    try {
-      await CompetenciasServicio().sincronizarHistorial(widget.uid);
-    } catch (_) {}
-    // Solicitud de organizador rechazada. Si falla, no bloquea.
-    Registro? rechazo;
-    try {
-      final s = await AdminServicio().leerMiSolicitud(widget.uid);
-      if (s != null && s.rechazada) rechazo = s;
-    } catch (_) {}
-
-    // Avisos de torneos (cancelado, suspendido, reactivado o cambio de fecha).
-    var torneos = <Competencia>[];
-    try {
-      torneos = await CompetenciasServicio().avisosPendientes(widget.uid);
-    } catch (_) {}
-
-    final avisos = <(String, String)>[
-      if (aviso != null) ('Aviso de tu dojo', aviso.mensaje),
-      if (rechazo != null)
-        (
-          'Solicitud de organizador',
-          'Tu solicitud para ser organizador fue rechazada.\n\n'
-              'Motivo: ${rechazo.motivo}\n\n'
-              'Puedes enviar otra desde Torneos → 🏆 → Ser organizador.'
-        ),
-      for (final c in torneos) ('Aviso de torneo', c.avisoTexto ?? ''),
-    ];
-    if (avisos.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        for (final (titulo, mensaje) in avisos) {
-          if (!mounted) return;
-          await showDialog<void>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text(titulo),
-              content: Text(mensaje),
-              actions: [
-                FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Entendido')),
-              ],
-            ),
-          );
-        }
-        // Ya vio el aviso: se borra la solicitud rechazada para que
-        // pueda enviar otra.
-        if (rechazo != null) {
-          try {
-            await AdminServicio().cancelarSolicitud(widget.uid);
-          } catch (_) {}
-        }
-        // Cada aviso de torneo se muestra una sola vez.
-        for (final c in torneos) {
-          try {
-            await CompetenciasServicio().marcarAvisoVisto(widget.uid, c);
-          } catch (_) {}
-        }
-      });
-    }
+    // Lo demás (historial y avisos de la campanita) va sin hacer esperar.
+    unawaited(_revisarAvisos(aviso));
     return actual;
+  }
+
+  /// Revisa lo que hay que avisar en la campanita. Si algo falla, sigue.
+  Future<void> _revisarAvisos(AvisoDojo? aviso) async {
+    final uid = widget.uid;
+    final avisos = NotificacionesServicio();
+    if (aviso != null) {
+      await avisos.resultadoDojo(uid,
+          dojoId: aviso.dojoId, subtipo: aviso.subtipo, texto: aviso.mensaje);
+    }
+    // Pasa al historial las competencias terminadas.
+    try {
+      await CompetenciasServicio().sincronizarHistorial(uid);
+    } catch (_) {}
+    // Solicitud de organizador rechazada: aviso y se borra para poder enviar otra.
+    try {
+      final s = await AdminServicio().leerMiSolicitud(uid);
+      if (s != null && s.rechazada) {
+        await avisos.organizadorRechazado(uid, s.motivo);
+        await AdminServicio().cancelarSolicitud(uid);
+      }
+    } catch (_) {}
+    await avisos.revisarOrganizador(uid);
+    // Torneos cancelados, suspendidos, reactivados o con fecha nueva.
+    try {
+      for (final c in await CompetenciasServicio().avisosPendientes(uid)) {
+        await avisos.torneo(uid, c);
+        await CompetenciasServicio().marcarAvisoVisto(uid, c);
+      }
+    } catch (_) {}
+    await avisos.revisarPodios(uid);
+    await avisos.limpiarViejos(uid);
   }
 
   void _recargar() => setState(() => _carga = _cargar());
@@ -192,6 +169,9 @@ class InicioPantalla extends StatefulWidget {
 class _InicioPantallaState extends State<InicioPantalla> {
   int _pestana = 0;
   StreamSubscription<bool>? _admin;
+  StreamSubscription<Object?>? _denuncias;
+  StreamSubscription<String?>? _miDojo;
+  String? _dojoEscuchado;
 
   @override
   void initState() {
@@ -199,7 +179,8 @@ class _InicioPantallaState extends State<InicioPantalla> {
     Sesion.iniciar(widget.uid, widget.perfil);
     _admin = AdminServicio()
         .esAdmin(widget.uid, FirebaseAuth.instance.currentUser?.email)
-        .listen((v) => Sesion.esAdmin = v, onError: (_) {});
+        .listen(_siEsAdmin, onError: (_) {});
+    _escucharDojo();
     _conectarNavegacion();
   }
 
@@ -207,12 +188,40 @@ class _InicioPantallaState extends State<InicioPantalla> {
   void didUpdateWidget(covariant InicioPantalla anterior) {
     super.didUpdateWidget(anterior);
     Sesion.iniciar(widget.uid, widget.perfil);
+    _escucharDojo();
   }
 
   @override
   void dispose() {
     _admin?.cancel();
+    _denuncias?.cancel();
+    _miDojo?.cancel();
     super.dispose();
+  }
+
+  /// Los administradores reciben en la campanita las denuncias nuevas.
+  void _siEsAdmin(bool v) {
+    Sesion.esAdmin = v;
+    if (v && _denuncias == null) {
+      _denuncias = SocialServicio().denuncias().listen(
+            (docs) => NotificacionesServicio().revisarDenuncias(widget.uid, docs),
+            onError: (_) {},
+          );
+    }
+  }
+
+  /// Si el dojo responde mientras la app está abierta, se recarga el perfil
+  /// (eso crea el aviso en la campanita).
+  void _escucharDojo() {
+    final dojoId = widget.perfil.dojoId;
+    if (dojoId == _dojoEscuchado) return;
+    _miDojo?.cancel();
+    _miDojo = null;
+    _dojoEscuchado = dojoId;
+    if (dojoId == null) return;
+    _miDojo = DojosServicio().estadoMiembro(dojoId, widget.uid).listen((estado) {
+      if (estado != widget.perfil.dojoEstado) perfilCambiado.value++;
+    }, onError: (_) {});
   }
 
   /// Las tarjetas de publicaciones abren estas pantallas.
@@ -305,6 +314,7 @@ class MiPerfilPantalla extends StatelessWidget {
         actions: [
           const BotonCrear(),
           const BotonBuscar(),
+          const BotonAvisos(),
           StreamBuilder<bool>(
             stream: AdminServicio()
                 .esAdmin(uid, FirebaseAuth.instance.currentUser?.email),

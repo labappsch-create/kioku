@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../modelos/perfil.dart';
+import 'notificaciones_servicio.dart';
 import '../modelos/publicacion.dart';
 import '../modelos/reaccion.dart';
 import 'fotos_servicio.dart';
@@ -123,25 +124,28 @@ class SocialServicio {
 
   // ---------- Amigos ----------
 
-  Future<void> enviarSolicitud(String de, String para, String deNombre) =>
-      _db.collection('solicitudes_amistad').doc('${de}_$para').set({
-        'de': de,
-        'para': para,
-        'deNombre': deNombre,
-        'creado': FieldValue.serverTimestamp(),
-      });
+  Future<void> enviarSolicitud(String de, String para, String deNombre) async {
+    await _db.collection('solicitudes_amistad').doc('${de}_$para').set({
+      'de': de,
+      'para': para,
+      'deNombre': deNombre,
+      'creado': FieldValue.serverTimestamp(),
+    });
+    unawaited(NotificacionesServicio(db: _db).solicitudAmistad(de, para));
+  }
 
   Future<void> cancelarSolicitud(String de, String para) =>
       _db.collection('solicitudes_amistad').doc('${de}_$para').delete();
 
-  Future<void> aceptar(String yo, String otro) {
+  Future<void> aceptar(String yo, String otro) async {
     final lote = _db.batch();
     lote.set(_db.collection('amistades').doc(parId(yo, otro)), {
       'miembros': [yo, otro],
       'creado': FieldValue.serverTimestamp(),
     });
     lote.delete(_db.collection('solicitudes_amistad').doc('${otro}_$yo'));
-    return lote.commit();
+    await lote.commit();
+    unawaited(NotificacionesServicio(db: _db).amistadAceptada(yo, otro));
   }
 
   Future<void> rechazar(String yo, String otro) =>
@@ -371,14 +375,18 @@ class SocialServicio {
     return r.count ?? 0;
   }
 
-  Future<void> comentar(DocumentReference<Map<String, dynamic>> pub, String uid,
-          String nombre, String texto) =>
-      pub.collection('comentarios').doc(idViejoPrimero()).set({
-        'autorUid': uid,
-        'autorNombre': nombre,
-        'texto': texto,
-        'creado': FieldValue.serverTimestamp(),
-      });
+  /// Comenta y devuelve el identificador del comentario.
+  Future<String> comentar(DocumentReference<Map<String, dynamic>> pub, String uid,
+      String nombre, String texto) async {
+    final ref = pub.collection('comentarios').doc(idViejoPrimero());
+    await ref.set({
+      'autorUid': uid,
+      'autorNombre': nombre,
+      'texto': texto,
+      'creado': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
 
   Future<void> borrarComentario(Comentario c) => c.ref.delete();
 

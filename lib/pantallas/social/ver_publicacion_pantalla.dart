@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../modelos/publicacion.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/notificaciones_servicio.dart';
 import '../../servicios/sesion.dart';
 import '../../servicios/social_servicio.dart';
 import '../../widgets/avatar.dart';
@@ -42,8 +45,9 @@ class _VerPublicacionPantallaState extends State<VerPublicacionPantalla> {
     final mensajes = ScaffoldMessenger.of(context);
     setState(() => _enviando = true);
     try {
-      await _servicio.comentar(
+      final cid = await _servicio.comentar(
           widget.publicacion.ref, uid, perfil.nombrePublico(DateTime.now()), texto);
+      unawaited(NotificacionesServicio().comentario(uid, widget.publicacion, cid));
       _texto.clear();
     } catch (e) {
       mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));

@@ -109,7 +109,7 @@ class InscritosPantalla extends StatelessWidget {
               trailing: PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'confirmar') {
-                    _hacer(context, () => servicio.confirmar(i.id),
+                    _hacer(context, () => servicio.confirmar(i),
                         'Inscripción de ${i.atletaNombre} confirmada');
                   } else if (v == 'anular') {
                     _hacer(context, () => servicio.anular(i),

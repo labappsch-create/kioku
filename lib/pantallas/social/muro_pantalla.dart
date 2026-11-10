@@ -9,7 +9,7 @@ import '../../tema.dart';
 import '../../widgets/avatar.dart';
 import '../../widgets/tarjeta_publicacion.dart';
 import '../barra_acciones.dart';
-import 'amigos_pantalla.dart';
+import '../notificaciones_pantalla.dart';
 import 'crear_publicacion_pantalla.dart';
 
 /// Si la barra de abajo se ve. El Muro la esconde al bajar y la muestra al
@@ -126,23 +126,6 @@ class _MuroPantallaState extends State<MuroPantalla> {
     );
   }
 
-  Widget _botonAmigos() => ValueListenableBuilder<int>(
-        valueListenable: Sesion.cambios,
-        builder: (context, _, __) {
-          final n = Sesion.relaciones?.recibidas.length ?? 0;
-          return IconButton(
-            tooltip: 'Amigos',
-            icon: Badge(
-              isLabelVisible: n > 0,
-              label: Text('$n'),
-              child: const Icon(Icons.group),
-            ),
-            onPressed: () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const AmigosPantalla())),
-          );
-        },
-      );
-
   List<Widget> _contenido(AsyncSnapshot<List<Publicacion>> snap) {
     if (snap.connectionState != ConnectionState.done) {
       return const [
@@ -221,7 +204,7 @@ class _MuroPantallaState extends State<MuroPantalla> {
                   actions: [
                     BotonCrear(alPublicar: _cargar),
                     const BotonBuscar(),
-                    _botonAmigos(),
+                    const BotonAvisos(),
                   ],
                 ),
                 if (r?.suspendido ?? false)
