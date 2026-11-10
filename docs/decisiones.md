@@ -359,3 +359,25 @@ Se hace por partes:
   - Los "me gusta" anteriores quedan como **👍 Me gusta**.
   - Se muestran solo los **íconos más usados y el total** (sin lista de nombres).
 
+### Parte 3: notificaciones (campanita)
+
+- **Campanita 🔔** arriba en el Muro y en Mi perfil (junto al + y la lupa). Avisos **dentro de la app** (no suenan con la app cerrada).
+- Se **quita el ícono de Amigos** del Muro. Las solicitudes llegan a la campanita; la lista de amigos sigue en Mi perfil → Amigos.
+- Avisa de:
+  1. Reacciones a tu publicación (**agrupadas** por publicación: "Ana y 3 personas más reaccionaron…")
+  2. Comentarios en tu publicación (**agrupados** por publicación)
+  3. Solicitud de amistad recibida
+  4. Solicitud de amistad aceptada
+  5. (Sensei) Alguien pidió unirse a tu dojo
+  6. (Practicante) Tu dojo te aceptó, rechazó o quitó
+  7. Tu inscripción fue confirmada
+  8. Un torneo donde estás inscrito se canceló, suspendió, reactivó o cambió de fecha
+  9. Quedaste en el podio
+  10. (Organizador) Alguien se inscribió en tu torneo (agrupado por torneo)
+  11. Tu solicitud de organizador fue aprobada o rechazada
+  12. (Administradores) Llegó una denuncia nueva
+- Las **ventanas** que salían al abrir la app (dojo, torneos, organizador) se reemplazan por avisos en la campanita.
+- El **número rojo** se borra al abrir la lista. Los avisos sin abrir tienen **fondo celeste** hasta tocarlos.
+- Se guardan **30 días**. Cada aviso se puede borrar.
+- Si una reacción o un comentario llega a un aviso agrupado, ese aviso vuelve a aparecer como nuevo.
+

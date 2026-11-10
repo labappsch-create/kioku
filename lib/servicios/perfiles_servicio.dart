@@ -1,27 +1,37 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
 import 'dojos_servicio.dart';
+import 'notificaciones_servicio.dart';
 import 'social_servicio.dart';
 
 /// Avisa a la pantalla principal que el perfil cambió desde otra pantalla
 /// (por ejemplo, al crear un dojo y pasar a ser miembro), para recargarlo.
 final ValueNotifier<int> perfilCambiado = ValueNotifier<int>(0);
 
-/// Aviso que se muestra cuando un dojo rechaza o quita a la persona.
+/// Respuesta del dojo: aceptó, rechazó o quitó a la persona.
 class AvisoDojo {
-  const AvisoDojo({required this.dojo, required this.eraMiembro});
+  const AvisoDojo({required this.dojo, required this.dojoId, required this.subtipo});
 
   final String dojo;
+  final String dojoId;
 
-  /// true si ya estaba confirmada (la quitaron); false si era una solicitud.
-  final bool eraMiembro;
+  /// aceptado, rechazado o quitado.
+  final String subtipo;
 
-  String get mensaje => eraMiembro
-      ? 'Ya no eres miembro del dojo "$dojo". Puedes elegir otro dojo en Editar perfil.'
-      : 'El dojo "$dojo" rechazó tu solicitud. Puedes elegir otro dojo en Editar perfil.';
+  String get mensaje {
+    switch (subtipo) {
+      case 'aceptado':
+        return '$dojo te aceptó como miembro ✓';
+      case 'quitado':
+        return 'Ya no eres miembro de $dojo. Puedes elegir otro dojo en Editar perfil.';
+    }
+    return '$dojo rechazó tu solicitud. Puedes elegir otro dojo en Editar perfil.';
+  }
 }
 
 /// Guarda y lee perfiles en Firestore.
@@ -57,6 +67,9 @@ class PerfilesServicio {
     var aGuardar = perfil;
 
     final idAnterior = anterior?.dojoId;
+    // Para avisarle al sensei si se envía una solicitud nueva.
+    String? senseiAvisar;
+    String? dojoAvisar;
     if (idAnterior != perfil.dojoId) {
       if (idAnterior != null) {
         lote.delete(_dojos.miembroRef(idAnterior, uid));
@@ -67,6 +80,10 @@ class PerfilesServicio {
         final dojo = await _db.collection('dojos').doc(perfil.dojoId).get();
         final esSuyo = dojo.data()?['senseiUid'] == uid;
         final estado = esSuyo ? estadoConfirmado : estadoPendiente;
+        if (!esSuyo) {
+          senseiAvisar = dojo.data()?['senseiUid'] as String?;
+          dojoAvisar = dojo.data()?['nombre'] as String?;
+        }
         lote.set(_dojos.miembroRef(perfil.dojoId!, uid), {
           'estado': estado,
           'nombreMostrado': perfil.nombrePublico(hoy),
@@ -86,6 +103,10 @@ class PerfilesServicio {
     // set sin merge: reemplaza todo, así no quedan datos que ya no se deben ver.
     lote.set(_publico(uid), aGuardar.aMapaPublico(hoy));
     await lote.commit();
+    if (senseiAvisar != null && dojoAvisar != null && aGuardar.dojoId != null) {
+      unawaited(NotificacionesServicio(db: _db)
+          .solicitudDojo(uid, aGuardar.dojoId!, senseiAvisar, dojoAvisar));
+    }
   }
 
   /// Se llama al abrir la app. Revisa la solicitud al dojo, recalcula la
@@ -103,12 +124,16 @@ class PerfilesServicio {
       if (miembro == null) {
         aviso = AvisoDojo(
           dojo: actual.dojo,
-          eraMiembro: actual.dojoEstado == estadoConfirmado,
+          dojoId: actual.dojoId!,
+          subtipo: actual.dojoEstado == estadoConfirmado ? 'quitado' : 'rechazado',
         );
         actual = actual.conDojo(null, '', null);
         await _privado(uid).set(actual.aMapa());
       } else {
         final estado = miembro['estado'] as String?;
+        if (estado == estadoConfirmado && actual.dojoEstado == estadoPendiente) {
+          aviso = AvisoDojo(dojo: actual.dojo, dojoId: actual.dojoId!, subtipo: 'aceptado');
+        }
         if (estado != actual.dojoEstado) {
           actual = actual.conDojo(actual.dojoId, actual.dojo, estado);
           await _privado(uid).set(actual.aMapa());

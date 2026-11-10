@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../modelos/competencia.dart';
+import 'notificaciones_servicio.dart';
 import 'resultados_servicio.dart';
 
 /// Guarda y lee competencias, categorías e inscripciones.
@@ -210,6 +213,10 @@ class CompetenciasServicio {
       'ultimaInscripcion': id,
     });
     await lote.commit();
+    if (competencia.organizadorUid != inscritoPor) {
+      unawaited(NotificacionesServicio(db: _db)
+          .inscripcionNueva(inscritoPor, competencia, id, atleta.nombre));
+    }
   }
 
   Future<void> anular(Inscripcion i) async {
@@ -222,8 +229,11 @@ class CompetenciasServicio {
     await lote.commit();
   }
 
-  Future<void> confirmar(String id) =>
-      _insc.doc(id).update({'estado': inscripcionConfirmada});
+  Future<void> confirmar(Inscripcion i) async {
+    await _insc.doc(i.id).update({'estado': inscripcionConfirmada});
+    final yo = i.datos['organizadorUid'] as String? ?? '';
+    unawaited(NotificacionesServicio(db: _db).inscripcionConfirmada(yo, i));
+  }
 
   Stream<List<Inscripcion>> _lista(Query<Map<String, dynamic>> q) =>
       q.snapshots().map((r) {
