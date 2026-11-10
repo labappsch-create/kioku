@@ -253,6 +253,98 @@ service cloud.firestore {
         && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000;
     }
 
+    // ---------- Ayudas de las notificaciones ----------
+
+    // Avisos que juntan a varias personas en uno solo.
+    function avisoAgrupado(tipo) {
+      return tipo in ['reaccion', 'comentario', 'inscripcion_nueva'];
+    }
+
+    function inscripcionAvisoOk(dest, d, i) {
+      return i.organizadorUid == request.auth.uid
+        && i.atletaUid == dest
+        && i.estado == 'confirmada'
+        && i.competenciaId == d.competenciaId
+        && i.competenciaNombre == d.titulo
+        && i.categoriaNombre == d.detalle;
+    }
+
+    function inscripcionAvisoNueva(dest, d, i) {
+      return i.organizadorUid == dest
+        && i.inscritoPor == request.auth.uid
+        && i.competenciaId == d.competenciaId
+        && i.competenciaNombre == d.titulo
+        && i.atletaNombre == d.nombre;
+    }
+
+    // Cada tipo de aviso solo se puede dejar si lo que avisa ocurrió de verdad.
+    function avisoTipoValido(dest, aid, d) {
+      let yo = request.auth.uid;
+      return (d.tipo == 'reaccion'
+          && aid == 'reac_' + d.muro + '_' + d.duenoId + '_' + d.pid
+          && d.ultimaClave == yo
+          && d.nombre == perfilDe(yo).nombreMostrado
+          && ((d.muro == 'p' && d.duenoId == dest
+               && exists(/databases/$(database)/documents/muros/$(dest)/publicaciones/$(d.pid)/meGusta/$(yo)))
+            || (d.muro == 'd'
+               && get(/databases/$(database)/documents/muros_dojo/$(d.duenoId)/publicaciones/$(d.pid)).data.autorUid == dest
+               && exists(/databases/$(database)/documents/muros_dojo/$(d.duenoId)/publicaciones/$(d.pid)/meGusta/$(yo)))))
+        || (d.tipo == 'comentario'
+          && aid == 'com_' + d.muro + '_' + d.duenoId + '_' + d.pid
+          && d.ultimaClave == yo
+          && d.nombre == perfilDe(yo).nombreMostrado
+          && ((d.muro == 'p' && d.duenoId == dest
+               && get(/databases/$(database)/documents/muros/$(dest)/publicaciones/$(d.pid)/comentarios/$(d.cid)).data.autorUid == yo)
+            || (d.muro == 'd'
+               && get(/databases/$(database)/documents/muros_dojo/$(d.duenoId)/publicaciones/$(d.pid)).data.autorUid == dest
+               && get(/databases/$(database)/documents/muros_dojo/$(d.duenoId)/publicaciones/$(d.pid)/comentarios/$(d.cid)).data.autorUid == yo)))
+        || (d.tipo == 'solicitud_amistad'
+          && aid == 'amig_sol_' + yo
+          && d.nombre == perfilDe(yo).nombreMostrado
+          && exists(/databases/$(database)/documents/solicitudes_amistad/$(yo + '_' + dest)))
+        || (d.tipo == 'amistad_aceptada'
+          && aid == 'amig_ok_' + yo
+          && d.nombre == perfilDe(yo).nombreMostrado
+          && exists(/databases/$(database)/documents/amistades/$(parId(yo, dest))))
+        || (d.tipo == 'solicitud_dojo'
+          && aid == 'dojo_sol_' + d.dojoId + '_' + yo
+          && d.nombre == perfilDe(yo).nombreMostrado
+          && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.senseiUid == dest
+          && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.nombre == d.titulo
+          && get(/databases/$(database)/documents/dojos/$(d.dojoId)/miembros/$(yo)).data.estado == 'pendiente')
+        || (d.tipo == 'inscripcion_confirmada'
+          && aid == 'insc_ok_' + d.iid
+          && inscripcionAvisoOk(dest, d,
+               get(/databases/$(database)/documents/inscripciones/$(d.iid)).data))
+        || (d.tipo == 'inscripcion_nueva'
+          && aid == 'insc_new_' + d.competenciaId
+          && inscripcionAvisoNueva(dest, d,
+               get(/databases/$(database)/documents/inscripciones/$(d.ultimaClave)).data));
+    }
+
+    // Aviso que una persona deja en la campanita de otra.
+    function avisoDeOtro(dest, aid, d) {
+      return conCuenta()
+        && dest != request.auth.uid
+        && d.actorUid == request.auth.uid
+        && d.leido == false
+        && d.actualizado == request.time
+        && d.keys().hasOnly(['tipo', 'actorUid', 'nombre', 'claves', 'ultimaClave', 'muro',
+             'duenoId', 'pid', 'cid', 'dojoId', 'iid', 'competenciaId', 'titulo', 'detalle',
+             'leido', 'actualizado'])
+        && (resource == null || resource.data.tipo == d.tipo)
+        // En los agrupados, cada uno solo se agrega a sí mismo (no borra a otros).
+        && (!avisoAgrupado(d.tipo)
+            || (d.claves is list && d.ultimaClave in d.claves
+                && (resource == null
+                    ? d.claves.size() == 1
+                    : (d.claves.size() <= resource.data.get('claves', []).size() + 1
+                       && d.claves.hasAll(resource.data.get('claves', []))))))
+        && noSuspendido()
+        && !exists(/databases/$(database)/documents/bloqueos/$(dest + '_' + request.auth.uid))
+        && avisoTipoValido(dest, aid, d);
+    }
+
     // ---------- Perfiles ----------
 
     // Perfil completo (incluye fecha de nacimiento): solo su dueño.
@@ -634,6 +726,22 @@ service cloud.firestore {
       allow read: if conCuenta();
       allow create: if esAdmin() && request.resource.data.keys().hasOnly(['nombre', 'creado']);
       allow delete: if esAdmin();
+    }
+
+    // ---------- Notificaciones (campanita) ----------
+
+    // El documento guarda hasta cuándo vio la campanita (número rojo).
+    match /notificaciones/{dest} {
+      allow read, write: if esDueno(dest);
+
+      match /avisos/{aid} {
+        allow read, delete: if esDueno(dest);
+        // La persona escribe sus propios avisos (los que detecta la app) y
+        // los marca como leídos.
+        allow create, update: if esDueno(dest) && request.resource.data.tipo is string;
+        // Otra persona solo deja avisos de algo que realmente hizo.
+        allow create, update: if avisoDeOtro(dest, aid, request.resource.data);
+      }
     }
   }
 }

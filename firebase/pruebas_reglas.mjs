@@ -6,6 +6,11 @@ import {
   assertSucceeds,
   assertFails,
 } from '@firebase/rules-unit-testing';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
+
+const ahora = () => firebase.firestore.FieldValue.serverTimestamp();
+const sumar = (x) => firebase.firestore.FieldValue.arrayUnion(x);
 
 const env = await initializeTestEnvironment({
   projectId: 'demo-kioku',
@@ -66,6 +71,15 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await db.doc('fotos_perfil/ana').set({ url: 'y', esMenor: false });
   await db.doc('portadas/mia').set({ url: 'p', esMenor: true });
   await db.doc('portadas/ana').set({ url: 'q', esMenor: false });
+  // Para las notificaciones.
+  await db.doc('muros/ana/publicaciones/p_amigos/meGusta/beto').set({ tipo: 'oss' });
+  await db.doc('muros/ana/publicaciones/p_todos/meGusta/beto').set({ tipo: 'oss' });
+  await db.doc('muros/ana/publicaciones/p_todos/meGusta/leo').set({ tipo: 'fuego' });
+  await db.doc('muros/ana/publicaciones/p_todos/meGusta/sara').set({ tipo: 'oss' });
+  await db.doc('muros/ana/publicaciones/p_amigos/comentarios/c_b')
+    .set({ autorUid: 'beto', autorNombre: 'Beto Soto', texto: 'Oss' });
+  await db.doc('dojos/d1/miembros/leo').set({ estado: 'pendiente' });
+  await db.doc('solicitudes_amistad/leo_ana').set({ de: 'leo', para: 'ana', deNombre: 'Leo Paz' });
 });
 
 const db = (uid) => env.authenticatedContext(uid).firestore();
@@ -197,6 +211,65 @@ await prueba('Desconocido NO reacciona a publicación solo para amigos', false,
   db('sara').doc('muros/ana/publicaciones/p_amigos/meGusta/sara').set(rx('oss')));
 await prueba('Seguidor reacciona a publicación del dojo para seguidores', true,
   db('leo').doc('muros_dojo/d1/publicaciones/d_seg/meGusta/leo').set(rx('aplausos')));
+
+// ---------- Notificaciones ----------
+const reac = (uid, nombre, pid) => ({
+  tipo: 'reaccion', actorUid: uid, nombre, claves: [uid], ultimaClave: uid,
+  muro: 'p', duenoId: 'ana', pid, leido: false, actualizado: ahora(),
+});
+await prueba('Quien reaccionó avisa al autor', true,
+  db('beto').doc('notificaciones/ana/avisos/reac_p_ana_p_todos').set(reac('beto', 'Beto Soto', 'p_todos')));
+await prueba('Otra persona que reaccionó se suma al aviso agrupado', true,
+  db('leo').doc('notificaciones/ana/avisos/reac_p_ana_p_todos').set({
+    tipo: 'reaccion', actorUid: 'leo', nombre: 'Leo Paz', claves: sumar('leo'), ultimaClave: 'leo',
+    muro: 'p', duenoId: 'ana', pid: 'p_todos', leido: false, actualizado: ahora(),
+  }, { merge: true }));
+await prueba('Nadie borra a otros del aviso agrupado', false,
+  db('leo').doc('notificaciones/ana/avisos/reac_p_ana_p_todos').set(reac('leo', 'Leo Paz', 'p_todos')));
+await prueba('NO se avisa una reacción que no existe', false,
+  db('leo').doc('notificaciones/ana/avisos/reac_p_ana_p_amigos').set(reac('leo', 'Leo Paz', 'p_amigos')));
+await prueba('Alguien bloqueado NO deja avisos', false,
+  db('sara').doc('notificaciones/ana/avisos/reac_p_ana_p_todos').set({
+    tipo: 'reaccion', actorUid: 'sara', nombre: 'Sara Ríos', claves: sumar('sara'), ultimaClave: 'sara',
+    muro: 'p', duenoId: 'ana', pid: 'p_todos', leido: false, actualizado: ahora(),
+  }, { merge: true }));
+await prueba('Nadie deja avisos a nombre de otro', false,
+  db('beto').doc('notificaciones/ana/avisos/reac_p_ana_p_amigos').set({
+    ...reac('beto', 'Beto Soto', 'p_amigos'), actorUid: 'leo' }));
+await prueba('Quien comentó avisa al autor', true,
+  db('beto').doc('notificaciones/ana/avisos/com_p_ana_p_amigos').set({
+    tipo: 'comentario', actorUid: 'beto', nombre: 'Beto Soto', claves: ['beto'], ultimaClave: 'beto',
+    muro: 'p', duenoId: 'ana', pid: 'p_amigos', cid: 'c_b', leido: false, actualizado: ahora(),
+  }));
+await prueba('Solicitud de amistad real se avisa', true,
+  db('leo').doc('notificaciones/ana/avisos/amig_sol_leo').set({
+    tipo: 'solicitud_amistad', actorUid: 'leo', nombre: 'Leo Paz', leido: false, actualizado: ahora(),
+  }));
+await prueba('Solicitud de amistad inventada NO se avisa', false,
+  db('xavi').doc('notificaciones/mia/avisos/amig_sol_xavi').set({
+    tipo: 'solicitud_amistad', actorUid: 'xavi', nombre: 'Xavi', leido: false, actualizado: ahora(),
+  }));
+await prueba('Solicitud a un dojo se avisa al sensei', true,
+  db('leo').doc('notificaciones/kenji/avisos/dojo_sol_d1_leo').set({
+    tipo: 'solicitud_dojo', actorUid: 'leo', nombre: 'Leo Paz', dojoId: 'd1', titulo: 'Dojo Uno',
+    leido: false, actualizado: ahora(),
+  }));
+await prueba('Aviso de dojo a quien no es el sensei NO se acepta', false,
+  db('leo').doc('notificaciones/ana/avisos/dojo_sol_d1_leo').set({
+    tipo: 'solicitud_dojo', actorUid: 'leo', nombre: 'Leo Paz', dojoId: 'd1', titulo: 'Dojo Uno',
+    leido: false, actualizado: ahora(),
+  }));
+await prueba('La dueña ve sus avisos', true,
+  db('ana').collection('notificaciones/ana/avisos').get());
+await prueba('Nadie más ve los avisos de otra persona', false,
+  db('beto').collection('notificaciones/ana/avisos').get());
+await prueba('La dueña marca un aviso como leído', true,
+  db('ana').doc('notificaciones/ana/avisos/amig_sol_leo').update({ leido: true }));
+await prueba('La dueña escribe sus propios avisos', true,
+  db('mia').doc('notificaciones/mia/avisos/dojo_res_d1').set({
+    tipo: 'dojo_resultado', texto: 'Hola', leido: false, actualizado: ahora() }));
+await prueba('La dueña borra un aviso', true,
+  db('ana').doc('notificaciones/ana/avisos/amig_sol_leo').delete());
 
 // ---------- Fotos (Storage) ----------
 await prueba('Subir foto a mi publicación', true,
