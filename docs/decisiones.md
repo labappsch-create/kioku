@@ -331,8 +331,8 @@ Nombre · Nivel · Organizador (automático) · Fechas del evento · País, regi
 
 Se hace por partes:
 
-1. **Aspecto** ← en curso
-2. Portada de perfil y reacciones variadas
+1. **Aspecto** ✅ terminado (versión de prueba 56)
+2. Portada de perfil y reacciones variadas ← siguiente
 3. Notificaciones dentro de la app (campanita)
 4. Mensajes privados (con reglas para menores)
 
@@ -345,4 +345,6 @@ Se hace por partes:
 - **Publicaciones de borde a borde**, separadas por una franja gris clara. Las fotos ocupan todo el ancho.
 - **Cajita para publicar** arriba del Muro: tu foto, el texto **"¿Qué entrenaste hoy?"** y un ícono de foto.
 - Se quita el botón rojo flotante "Publicar".
+- El logo 記 aparece junto a "Kioku" arriba a la izquierda del Muro.
+- Se mantiene el ícono de Amigos arriba del Muro (con el número de solicitudes).
 
