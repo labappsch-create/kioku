@@ -209,8 +209,15 @@ class _MuroPantallaState extends State<MuroPantalla> {
                 SliverAppBar(
                   floating: true,
                   snap: true,
-                  title: const Text('Kioku',
-                      style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  titleSpacing: 12,
+                  title: Row(mainAxisSize: MainAxisSize.min, children: [
+                    ClipOval(
+                      child: Image.asset('assets/icono/icono.png', width: 32, height: 32),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('Kioku',
+                        style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ]),
                   actions: [
                     BotonCrear(alPublicar: _cargar),
                     const BotonBuscar(),
