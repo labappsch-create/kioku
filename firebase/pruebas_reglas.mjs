@@ -80,6 +80,14 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     .set({ autorUid: 'beto', autorNombre: 'Beto Soto', texto: 'Oss' });
   await db.doc('dojos/d1/miembros/leo').set({ estado: 'pendiente' });
   await db.doc('solicitudes_amistad/leo_ana').set({ de: 'leo', para: 'ana', deNombre: 'Leo Paz' });
+  // Para borrar torneos.
+  await db.doc('competencias/t_canc').set({ organizadorUid: 'kenji', situacion: 'cancelada', nivel: 'local' });
+  await db.doc('competencias/t_canc/categorias/cat1').set({ inscritos: 1, modalidad: 'kumite' });
+  await db.doc('inscripciones/i1').set({
+    organizadorUid: 'kenji', competenciaId: 't_canc', categoriaId: 'cat1',
+    estado: 'confirmada', atletaUid: 'mia', senseiUid: 'kenji' });
+  await db.doc('competencias/t_ok').set({ organizadorUid: 'kenji', situacion: 'normal', nivel: 'local' });
+  await db.doc('competencias/t_ok/categorias/cat2').set({ inscritos: 1, modalidad: 'kumite' });
 });
 
 const db = (uid) => env.authenticatedContext(uid).firestore();
@@ -270,6 +278,24 @@ await prueba('La dueña escribe sus propios avisos', true,
     tipo: 'dojo_resultado', texto: 'Hola', leido: false, actualizado: ahora() }));
 await prueba('La dueña borra un aviso', true,
   db('ana').doc('notificaciones/ana/avisos/amig_sol_leo').delete());
+
+// ---------- Borrar y ocultar torneos ----------
+await prueba('Nadie borra un torneo que no está cancelado', false,
+  db('kenji').doc('competencias/t_ok').delete());
+await prueba('Nadie borra categorías con inscritos de un torneo activo', false,
+  db('kenji').doc('competencias/t_ok/categorias/cat2').delete());
+await prueba('Otro NO borra un torneo cancelado ajeno', false,
+  db('ana').doc('competencias/t_canc').delete());
+await prueba('Organizador borra inscripciones de su torneo cancelado', true,
+  db('kenji').doc('inscripciones/i1').delete());
+await prueba('Organizador borra categorías de su torneo cancelado', true,
+  db('kenji').doc('competencias/t_canc/categorias/cat1').delete());
+await prueba('Organizador borra su torneo cancelado', true,
+  db('kenji').doc('competencias/t_canc').delete());
+await prueba('Cada persona oculta torneos de su lista', true,
+  db('ana').doc('usuarios/ana/ocultos/t_ok').set({ creado: ahora() }));
+await prueba('Nadie toca la lista de ocultos de otro', false,
+  db('beto').doc('usuarios/ana/ocultos/t_ok').set({ creado: ahora() }));
 
 // ---------- Fotos (Storage) ----------
 await prueba('Subir foto a mi publicación', true,

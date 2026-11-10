@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../modelos/competencia.dart';
+import 'fotos_servicio.dart';
 import 'notificaciones_servicio.dart';
 import 'resultados_servicio.dart';
 
@@ -45,6 +46,47 @@ class CompetenciasServicio {
 
   Future<void> actualizar(String id, Map<String, Object?> datos) =>
       _comps.doc(id).update(datos);
+
+  // ---------- Ocultar y borrar ----------
+
+  DocumentReference<Map<String, dynamic>> _oculto(String uid, String cid) =>
+      _db.collection('usuarios').doc(uid).collection('ocultos').doc(cid);
+
+  /// Oculta el torneo de las listas de esta persona.
+  Future<void> ocultar(String uid, String cid) =>
+      _oculto(uid, cid).set({'creado': FieldValue.serverTimestamp()});
+
+  /// Lo vuelve a mostrar.
+  Future<void> mostrar(String uid, String cid) => _oculto(uid, cid).delete();
+
+  /// Borra para todos un torneo cancelado: inscripciones, categorías,
+  /// afiche y el torneo.
+  Future<void> borrarTorneo(Competencia c, String uid) async {
+    if (!c.cancelada) throw StateError('Solo se pueden borrar torneos cancelados.');
+    final inscripciones = await _insc
+        .where('competenciaId', isEqualTo: c.id)
+        .where('organizadorUid', isEqualTo: uid)
+        .get();
+    final categorias = await _cats(c.id).get();
+    final refs = [
+      for (final d in inscripciones.docs) d.reference,
+      for (final d in categorias.docs) d.reference,
+    ];
+    // De a 400 (Firebase acepta hasta 500 cambios juntos).
+    for (var i = 0; i < refs.length; i += 400) {
+      final lote = _db.batch();
+      for (final r in refs.skip(i).take(400)) {
+        lote.delete(r);
+      }
+      await lote.commit();
+    }
+    final afiche = c.aficheRuta;
+    if (afiche != null) await FotosServicio().borrar(afiche);
+    await _comps.doc(c.id).delete();
+    try {
+      await mostrar(uid, c.id);
+    } catch (_) {}
+  }
 
   Future<void> cerrarInscripciones(String id) => _comps.doc(id).update({
         'cerradaAntes': true,
