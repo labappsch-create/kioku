@@ -64,6 +64,8 @@ class Aviso {
         return '$nombre aceptó tu solicitud de amistad.';
       case 'solicitud_dojo':
         return '$nombre pidió unirse a $titulo.';
+      case 'traspaso_dojo':
+        return '$nombre quiere traspasarte $titulo. Tócalo para aceptar o rechazar.';
       case 'inscripcion_confirmada':
         return 'Tu inscripción en $titulo fue confirmada ✓\n$detalle';
       case 'inscripcion_nueva':

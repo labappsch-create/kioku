@@ -55,6 +55,18 @@ String normalizarParaBuscar(String texto) {
   return buffer.toString().replaceAll(RegExp(r'\s+'), ' ');
 }
 
+/// Comienzos de cada palabra del nombre (para buscar por apellido).
+/// Por ejemplo, "Ana Pérez" → a, an, ana, p, pe, per, pere, perez.
+List<String> palabrasDeBusqueda(String texto) {
+  final out = <String>{};
+  for (final palabra in normalizarParaBuscar(texto).split(' ')) {
+    for (var i = 1; i <= palabra.length && i <= 15; i++) {
+      out.add(palabra.substring(0, i));
+    }
+  }
+  return out.toList();
+}
+
 /// Perfil completo. Solo lo lee y lo escribe su dueño
 /// (colección privada `usuarios`).
 class Perfil {
@@ -208,6 +220,7 @@ class Perfil {
         'esMenor': true,
         'nombreMostrado': nombre,
         'nombreBusqueda': normalizarParaBuscar(nombre),
+        'palabrasBusqueda': palabrasDeBusqueda(nombre),
         'gradoId': gradoId,
         'dojo': dojo,
         'dojoId': dojoId,
@@ -220,6 +233,7 @@ class Perfil {
       'esMenor': false,
       'nombreMostrado': completo,
       'nombreBusqueda': normalizarParaBuscar(completo),
+      'palabrasBusqueda': palabrasDeBusqueda(completo),
       'gradoId': gradoId,
       'dojo': dojo,
       'dojoId': dojoId,

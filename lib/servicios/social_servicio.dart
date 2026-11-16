@@ -317,6 +317,15 @@ class SocialServicio {
   }
 
   Future<void> borrar(Publicacion p) async {
+    // Primero sus comentarios y reacciones, después la publicación.
+    for (final sub in ['comentarios', 'meGusta']) {
+      try {
+        final r = await p.ref.collection(sub).get();
+        for (final d in r.docs) {
+          await d.reference.delete();
+        }
+      } catch (_) {}
+    }
     await p.ref.delete();
     for (final f in p.fotos) {
       await _fotos.borrar(f.ruta);
@@ -397,7 +406,25 @@ class SocialServicio {
       'texto': texto,
       'creado': FieldValue.serverTimestamp(),
     });
+    unawaited(_anotar(uid, ref.path, true));
     return ref.id;
+  }
+
+  /// Anota (o quita) un comentario o reacción en la actividad de la persona,
+  /// para poder borrarlos si borra su cuenta.
+  Future<void> _anotar(String uid, String ruta, bool poner) async {
+    try {
+      final ref = _db
+          .collection('usuarios')
+          .doc(uid)
+          .collection('actividad')
+          .doc(ruta.replaceAll('/', '|'));
+      if (poner) {
+        await ref.set({'ruta': ruta});
+      } else {
+        await ref.delete();
+      }
+    } catch (_) {}
   }
 
   Future<void> borrarComentario(Comentario c) => c.ref.delete();
@@ -414,6 +441,7 @@ class SocialServicio {
   Future<void> reaccionar(
       DocumentReference<Map<String, dynamic>> pub, String uid, String? tipo) {
     final ref = pub.collection('meGusta').doc(uid);
+    unawaited(_anotar(uid, ref.path, tipo != null));
     if (tipo == null) return ref.delete();
     return ref.set({'tipo': tipo, 'creado': FieldValue.serverTimestamp()});
   }

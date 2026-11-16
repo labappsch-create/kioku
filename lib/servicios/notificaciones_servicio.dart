@@ -176,6 +176,18 @@ class NotificacionesServicio {
     });
   }
 
+  Future<void> traspasoDojo(
+      String yo, String para, String dojoId, String dojoNombre) async {
+    final nombre = await _miNombre(yo);
+    if (nombre == null) return;
+    await _paraOtro(yo, para, 'trasp_$dojoId', {
+      'tipo': 'traspaso_dojo',
+      'nombre': nombre,
+      'dojoId': dojoId,
+      'titulo': dojoNombre,
+    });
+  }
+
   Future<void> inscripcionConfirmada(String yo, Inscripcion i) =>
       _paraOtro(yo, i.atletaUid, 'insc_ok_${i.id}', {
         'tipo': 'inscripcion_confirmada',

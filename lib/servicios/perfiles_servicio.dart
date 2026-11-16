@@ -180,14 +180,45 @@ class PerfilesServicio {
       });
 
   /// Busca por el comienzo del nombre (sin importar tildes ni mayúsculas).
+  /// Busca por el comienzo de cualquier palabra del nombre (sin importar
+  /// tildes ni mayúsculas). Ej.: "pér" encuentra a "Ana Pérez".
   Future<List<PerfilPublico>> buscar(String texto) async {
     final q = normalizarParaBuscar(texto);
-    Query<Map<String, dynamic>> consulta =
-        _db.collection('perfiles').orderBy('nombreBusqueda');
-    if (q.isNotEmpty) {
-      consulta = consulta.startAt([q]).endAt(['$q\uf8ff']);
+    final perfiles = _db.collection('perfiles');
+    if (q.isEmpty) {
+      final res = await perfiles.orderBy('nombreBusqueda').limit(30).get();
+      return res.docs.map((d) => PerfilPublico(d.id, d.data())).toList();
     }
-    final res = await consulta.limit(30).get();
-    return res.docs.map((d) => PerfilPublico(d.id, d.data())).toList();
+    final palabras = q.split(' ').where((p) => p.isNotEmpty).toList();
+    final primera = palabras.first.length > 15
+        ? palabras.first.substring(0, 15)
+        : palabras.first;
+
+    final porPalabra =
+        perfiles.where('palabrasBusqueda', arrayContains: primera).limit(60).get();
+    // Perfiles que aún no tienen las palabras: por el comienzo del nombre.
+    final porComienzo = perfiles
+        .orderBy('nombreBusqueda')
+        .startAt([q])
+        .endAt(['$q\uf8ff'])
+        .limit(30)
+        .get();
+    final resultados = await Future.wait([porPalabra, porComienzo]);
+
+    final porId = <String, PerfilPublico>{};
+    for (final r in resultados) {
+      for (final d in r.docs) {
+        porId[d.id] = PerfilPublico(d.id, d.data());
+      }
+    }
+    // Cada palabra buscada tiene que ser el comienzo de alguna palabra del nombre.
+    bool calza(PerfilPublico p) {
+      final delNombre = normalizarParaBuscar(p.nombre).split(' ');
+      return palabras.every((b) => delNombre.any((n) => n.startsWith(b)));
+    }
+
+    final lista = porId.values.where(calza).toList()
+      ..sort((a, b) => normalizarParaBuscar(a.nombre).compareTo(normalizarParaBuscar(b.nombre)));
+    return lista.take(30).toList();
   }
 }

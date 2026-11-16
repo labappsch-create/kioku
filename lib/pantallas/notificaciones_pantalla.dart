@@ -124,6 +124,8 @@ class _NotificacionesPantallaState extends State<NotificacionesPantalla> {
         if (a.dojoId != null) {
           _abrir(MiembrosPantalla(dojoId: a.dojoId!, nombreDojo: a.titulo));
         }
+      case 'traspaso_dojo':
+        if (a.dojoId != null) _abrir(VerDojoPantalla(dojoId: a.dojoId!));
       case 'dojo_resultado':
         if (a.subtipo == 'aceptado' && a.dojoId != null) {
           _abrir(VerDojoPantalla(dojoId: a.dojoId!));
@@ -148,6 +150,7 @@ class _NotificacionesPantallaState extends State<NotificacionesPantalla> {
   Widget _imagen(Aviso a) {
     const conPersona = [
       'reaccion', 'comentario', 'solicitud_amistad', 'amistad_aceptada', 'solicitud_dojo',
+      'traspaso_dojo',
     ];
     if (conPersona.contains(a.tipo) && a.actorUid.isNotEmpty) {
       return Avatar(uid: a.actorUid, nombre: a.nombre, radio: 24);
