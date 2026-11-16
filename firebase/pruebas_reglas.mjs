@@ -336,12 +336,13 @@ await prueba('Nadie se queda con el dojo sin ser el destinatario', false,
 await prueba('El destinatario lo ve en "traspasos para mí"', true,
   db('tomo').collection('traspasos').where('paraUid', '==', 'tomo').get());
 {
-  const b = db('tomo').batch();
-  b.update(db('tomo').doc('dojos/d3'),
+  const f = db('tomo');
+  const b = f.batch();
+  b.update(f.doc('dojos/d3'),
     { senseiUid: 'tomo', senseiNombre: 'Tomo Ito', actualizado: ahora() });
-  b.update(db('tomo').doc('dojos_privados/d3'),
+  b.update(f.doc('dojos_privados/d3'),
     { senseiUid: 'tomo', senseiNombre: 'Tomo Ito', actualizado: ahora() });
-  b.delete(db('tomo').doc('traspasos/d3'));
+  b.delete(f.doc('traspasos/d3'));
   await prueba('El destinatario entrenador acepta el traspaso', true, b.commit());
 }
 await prueba('El nuevo sensei toma los torneos locales del dojo', true,
