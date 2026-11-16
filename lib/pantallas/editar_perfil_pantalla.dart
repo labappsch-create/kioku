@@ -7,6 +7,7 @@ import '../modelos/dojo.dart';
 import '../modelos/perfil.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
+import '../servicios/push_servicio.dart';
 import '../servicios/fotos_servicio.dart';
 import '../servicios/social_servicio.dart';
 import '../widgets/avatar.dart';
@@ -281,7 +282,7 @@ class _EditarPerfilPantallaState extends State<EditarPerfilPantalla> {
             IconButton(
               tooltip: 'Cerrar sesión',
               icon: const Icon(Icons.logout),
-              onPressed: () => FirebaseAuth.instance.signOut(),
+              onPressed: () => PushServicio.salir(),
             ),
         ],
       ),

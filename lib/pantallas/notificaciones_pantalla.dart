@@ -9,6 +9,7 @@ import '../servicios/sesion.dart';
 import '../widgets/avatar.dart';
 import '../widgets/tarjeta_publicacion.dart';
 import 'admin/admin_pantalla.dart';
+import 'ajustes_avisos_pantalla.dart';
 import 'competencias/ver_competencia_pantalla.dart';
 import 'dojos/miembros_pantalla.dart';
 import 'dojos/ver_dojo_pantalla.dart';
@@ -172,7 +173,16 @@ class _NotificacionesPantallaState extends State<NotificacionesPantalla> {
   Widget build(BuildContext context) {
     final uid = Sesion.uid;
     return Scaffold(
-      appBar: AppBar(title: const Text('Notificaciones')),
+      appBar: AppBar(
+        title: const Text('Notificaciones'),
+        actions: [
+          IconButton(
+            tooltip: 'Ajustes de avisos',
+            icon: const Icon(Icons.settings),
+            onPressed: () => _abrir(const AjustesAvisosPantalla()),
+          ),
+        ],
+      ),
       body: uid == null
           ? const SizedBox.shrink()
           : StreamBuilder<List<Aviso>>(

@@ -8,6 +8,7 @@ import 'admin_servicio.dart' show esAdminPrincipal;
 import 'competencias_servicio.dart';
 import 'dojos_servicio.dart';
 import 'perfiles_servicio.dart';
+import 'push_servicio.dart';
 import 'social_servicio.dart';
 
 /// Lo que impide borrar la cuenta (ver docs/decisiones.md).
@@ -201,12 +202,16 @@ class CuentaServicio {
     });
 
     await paso('Borrando tus avisos…', () async {
+      // Este teléfono deja de recibir avisos de la cuenta.
+      await PushServicio.olvidarTelefono(uid);
       final base = _db.collection('notificaciones').doc(uid);
       await _borrarTodos(base.collection('avisos'));
       await base.delete();
       await _borrarTodos(usuarios.collection('avisos_vistos'));
       await _borrarTodos(usuarios.collection('ocultos'));
       await _borrarTodos(usuarios.collection('actividad'));
+      await _borrarTodos(usuarios.collection('tokens'));
+      await _borrarTodos(usuarios.collection('ajustes'));
     });
 
     await paso('Borrando tus fotos…', () async {

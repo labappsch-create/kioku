@@ -44,6 +44,55 @@ jobs:
           firebase emulators:exec --only firestore,storage --project demo-kioku \
             "node firebase/revisar_reglas.js && node firebase/pruebas_reglas.mjs"
 
+  funciones:
+    runs-on: ubuntu-latest
+    # id-token: permite entrar a Google sin guardar contraseñas en GitHub.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Revisar las funciones
+        run: |
+          cd functions
+          npm install
+          node revisar.js
+
+      # Solo en main. No frena el armado de la app: hasta que se ejecute
+      # herramientas/preparar_avisos.sh, la conexión con Google no existe.
+      - name: Entrar a Google
+        id: google
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/693831196987/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@kioku-5d311.iam.gserviceaccount.com
+
+      - name: Publicar las funciones
+        if: steps.google.outcome == 'success'
+        continue-on-error: true
+        run: |
+          npm install -g firebase-tools
+          firebase deploy --only functions --project kioku-5d311
+
+      - name: Aviso si no se publicaron
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.google.outcome != 'success'
+        run: echo "::warning::Las funciones no se publicaron. Falta ejecutar herramientas/preparar_avisos.sh en Cloud Shell."
+
   armar:
     runs-on: ubuntu-latest
     steps:
@@ -70,6 +119,8 @@ jobs:
           # Firebase necesita Android 6.0 (versión 23) o superior.
           sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = maxOf(flutter.minSdkVersion, 23)/' android/app/build.gradle.kts
           grep -n "minSdk" android/app/build.gradle.kts
+          python3 herramientas/configurar_notificaciones.py
+          grep -n "POST_NOTIFICATIONS" android/app/src/main/AndroidManifest.xml
 
       - name: Ícono y pantalla de inicio
         run: |
@@ -101,7 +152,7 @@ jobs:
       - name: Revisar el código
         run: |
           flutter pub get
-          grep -A3 -E "^  (firebase_core|firebase_auth|cloud_firestore):" pubspec.lock | grep -E "^  [a-z_]+:|version"
+          grep -A3 -E "^  (firebase_core|firebase_auth|cloud_firestore|firebase_messaging):" pubspec.lock | grep -E "^  [a-z_]+:|version"
           flutter analyze --no-fatal-infos
 
       - name: Usar siempre la misma llave de firma
