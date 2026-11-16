@@ -88,6 +88,21 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     estado: 'confirmada', atletaUid: 'mia', senseiUid: 'kenji' });
   await db.doc('competencias/t_ok').set({ organizadorUid: 'kenji', situacion: 'normal', nivel: 'local' });
   await db.doc('competencias/t_ok/categorias/cat2').set({ inscritos: 1, modalidad: 'kumite' });
+  // Para traspasar un dojo y borrar cuentas.
+  await db.doc('perfiles/tomo').set({ nombreMostrado: 'Tomo Ito', esMenor: false });
+  await db.doc('usuarios/tomo').set({ rol: 'entrenador' });
+  await db.doc('usuarios/beto').set({ rol: 'atleta' });
+  await db.doc('dojos/d3').set({ senseiUid: 'kenji', senseiNombre: 'Kenji Mora', nombre: 'Dojo Tres' });
+  await db.doc('dojos_privados/d3').set({ senseiUid: 'kenji', senseiNombre: 'Kenji Mora', nombre: 'Dojo Tres' });
+  await db.doc('dojos/d3/miembros/tomo').set({ estado: 'confirmado' });
+  await db.doc('dojos/d3/miembros/beto').set({ estado: 'confirmado' });
+  await db.doc('competencias/t_loc').set({
+    organizadorUid: 'kenji', organizadorNombre: 'Kenji Mora', nivel: 'local', dojoId: 'd3',
+    situacion: 'normal', fechaFin: new Date(2020, 0, 1) });
+  await db.doc('inscripciones/i_loc').set({
+    organizadorUid: 'kenji', competenciaId: 't_loc', categoriaId: 'c', dojoId: 'd3',
+    senseiUid: 'kenji', estado: 'confirmada', atletaUid: 'beto' });
+  await db.doc('podios/t_loc_c_1').set({ atletaUid: 'beto', atletaNombre: 'Beto Soto', competenciaId: 't_loc' });
 });
 
 const db = (uid) => env.authenticatedContext(uid).firestore();
@@ -296,6 +311,67 @@ await prueba('Cada persona oculta torneos de su lista', true,
   db('ana').doc('usuarios/ana/ocultos/t_ok').set({ creado: ahora() }));
 await prueba('Nadie toca la lista de ocultos de otro', false,
   db('beto').doc('usuarios/ana/ocultos/t_ok').set({ creado: ahora() }));
+
+// ---------- Traspasar dojo ----------
+const tras = (para, paraNombre) => ({
+  dojoId: 'd3', dojoNombre: 'Dojo Tres', deUid: 'kenji', deNombre: 'Kenji Mora',
+  paraUid: para, paraNombre, creado: ahora(),
+});
+await prueba('Otro NO propone traspasar un dojo ajeno', false,
+  db('ana').doc('traspasos/d3').set({ ...tras('tomo', 'Tomo Ito'), deUid: 'ana' }));
+await prueba('Sensei NO traspasa a quien no es miembro', false,
+  db('kenji').doc('traspasos/d3').set(tras('sara', 'Sara Ríos')));
+await prueba('Sensei propone traspasar a un miembro', true,
+  db('kenji').doc('traspasos/d3').set(tras('beto', 'Beto Soto')));
+await prueba('Quien no es entrenador NO puede aceptar el dojo', false,
+  db('beto').doc('dojos/d3').update({ senseiUid: 'beto', senseiNombre: 'Beto Soto' }));
+await prueba('Sensei cambia el traspaso a otro miembro', true,
+  db('kenji').doc('traspasos/d3').set(tras('tomo', 'Tomo Ito')));
+await prueba('Sensei avisa del traspaso a quien lo recibe', true,
+  db('kenji').doc('notificaciones/tomo/avisos/trasp_d3').set({
+    tipo: 'traspaso_dojo', actorUid: 'kenji', nombre: 'Kenji Mora', dojoId: 'd3',
+    titulo: 'Dojo Tres', leido: false, actualizado: ahora() }));
+await prueba('Nadie se queda con el dojo sin ser el destinatario', false,
+  db('ana').doc('dojos/d3').update({ senseiUid: 'ana', senseiNombre: 'Ana Pérez' }));
+await prueba('El destinatario lo ve en "traspasos para mí"', true,
+  db('tomo').collection('traspasos').where('paraUid', '==', 'tomo').get());
+{
+  const b = db('tomo').batch();
+  b.update(db('tomo').doc('dojos/d3'),
+    { senseiUid: 'tomo', senseiNombre: 'Tomo Ito', actualizado: ahora() });
+  b.update(db('tomo').doc('dojos_privados/d3'),
+    { senseiUid: 'tomo', senseiNombre: 'Tomo Ito', actualizado: ahora() });
+  b.delete(db('tomo').doc('traspasos/d3'));
+  await prueba('El destinatario entrenador acepta el traspaso', true, b.commit());
+}
+await prueba('El nuevo sensei toma los torneos locales del dojo', true,
+  db('tomo').doc('competencias/t_loc').update({ organizadorUid: 'tomo', organizadorNombre: 'Tomo Ito' }));
+await prueba('El nuevo organizador ve las inscripciones del torneo', true,
+  db('tomo').collection('inscripciones').where('competenciaId', '==', 't_loc').get());
+await prueba('El nuevo sensei ve las inscripciones de su dojo', true,
+  db('tomo').collection('inscripciones').where('dojoId', '==', 'd3').get());
+await prueba('Las inscripciones pasan al nuevo organizador y sensei', true,
+  db('tomo').doc('inscripciones/i_loc').update({ organizadorUid: 'tomo', senseiUid: 'tomo' }));
+await prueba('Otro NO se pone como organizador de las inscripciones', false,
+  db('ana').doc('inscripciones/i_loc').update({ organizadorUid: 'ana' }));
+
+// ---------- Borrar cuenta ----------
+await prueba('Sin marcar el borrado, el atleta NO borra una inscripción confirmada', false,
+  db('beto').doc('inscripciones/i_loc').delete());
+await prueba('Marca que borra su cuenta', true,
+  db('beto').doc('eliminaciones/beto').set({ creado: ahora() }));
+await prueba('Al borrar su cuenta, borra su inscripción de un torneo terminado', true,
+  db('beto').doc('inscripciones/i_loc').delete());
+await prueba('Su podio queda como "Atleta eliminado"', true,
+  db('beto').doc('podios/t_loc_c_1').update({ atletaNombre: 'Atleta eliminado' }));
+await prueba('No puede poner otro nombre en el podio', false,
+  db('beto').doc('podios/t_loc_c_1').update({ atletaNombre: 'Otro' }));
+await prueba('Nadie anonimiza el podio de otro', false,
+  db('ana').doc('podios/t_loc_c_1').update({ atletaNombre: 'Atleta eliminado' }));
+await prueba('El autor borra reacciones de su publicación', true,
+  db('ana').doc('muros/ana/publicaciones/p_todos/meGusta/leo').delete());
+await prueba('Guarda su actividad', true,
+  db('beto').doc('usuarios/beto/actividad/x').set({ ruta: 'a/b' }));
 
 // ---------- Fotos (Storage) ----------
 await prueba('Subir foto a mi publicación', true,
