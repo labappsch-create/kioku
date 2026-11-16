@@ -1,0 +1,13 @@
+{
+  "name": "kioku-funciones",
+  "description": "Funciones de Kioku en los servidores de Google",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "firebase-admin": "latest",
+    "firebase-functions": "latest"
+  }
+}
