@@ -4,6 +4,7 @@ import '../../datos/grados.dart';
 import '../../modelos/dojo.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
+import '../../servicios/sesion.dart';
 import '../../widgets/tarjeta_perfil.dart';
 import '../ver_perfil_pantalla.dart';
 
@@ -31,8 +32,8 @@ class MiembrosPantalla extends StatelessWidget {
           ]),
         ),
         body: TabBarView(children: [
-          _Lista(dojoId: dojoId, estado: estadoPendiente),
-          _Lista(dojoId: dojoId, estado: estadoConfirmado),
+          _Lista(dojoId: dojoId, nombreDojo: nombreDojo, estado: estadoPendiente),
+          _Lista(dojoId: dojoId, nombreDojo: nombreDojo, estado: estadoConfirmado),
         ]),
       ),
     );
@@ -40,9 +41,10 @@ class MiembrosPantalla extends StatelessWidget {
 }
 
 class _Lista extends StatelessWidget {
-  const _Lista({required this.dojoId, required this.estado});
+  const _Lista({required this.dojoId, required this.nombreDojo, required this.estado});
 
   final String dojoId;
+  final String nombreDojo;
   final String estado;
 
   bool get _sonSolicitudes => estado == estadoPendiente;
@@ -133,7 +135,10 @@ class _Lista extends StatelessWidget {
                                       context.mounted) {
                                     await _hacer(
                                         context,
-                                        () => servicio.quitar(dojoId, m.uid),
+                                        () => servicio.quitar(dojoId, m.uid,
+                                            yo: Sesion.uid ?? '',
+                                            dojoNombre: nombreDojo,
+                                            eraMiembro: false),
                                         'Solicitud rechazada');
                                   }
                                 },
@@ -143,7 +148,8 @@ class _Lista extends StatelessWidget {
                               FilledButton(
                                 onPressed: () => _hacer(
                                     context,
-                                    () => servicio.aceptar(dojoId, m.uid),
+                                    () => servicio.aceptar(dojoId, m.uid,
+                                        yo: Sesion.uid ?? '', dojoNombre: nombreDojo),
                                     '${m.nombre} ahora es miembro'),
                                 child: const Text('Aceptar'),
                               ),
@@ -156,7 +162,10 @@ class _Lista extends StatelessWidget {
                                       context.mounted) {
                                     await _hacer(
                                         context,
-                                        () => servicio.quitar(dojoId, m.uid),
+                                        () => servicio.quitar(dojoId, m.uid,
+                                            yo: Sesion.uid ?? '',
+                                            dojoNombre: nombreDojo,
+                                            eraMiembro: true),
                                         '${m.nombre} ya no es miembro');
                                   }
                                 },

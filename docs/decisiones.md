@@ -406,3 +406,13 @@ Se hace por partes:
 - El sensei anterior **sigue como miembro confirmado**.
 - Los **torneos locales** del dojo (también los terminados) **pasan al nuevo sensei**.
 
+## Avisos con la app cerrada (notificaciones del teléfono)
+
+- Cada aviso nuevo de la campanita también **suena en el teléfono**, aunque la app esté cerrada.
+- **Cada persona elige** qué tipos de aviso suenan: pantalla de **ajustes de avisos** (botón ⚙️ en la campanita), un interruptor por tipo, todos encendidos al principio.
+- Avisos **agrupados** (reacciones, comentarios, inscripciones en mi torneo): suenan **solo la primera vez**; después se actualizan en silencio hasta que la persona abra la campanita.
+- Al tocar la notificación se abre la campanita.
+- Lo hace un programa en los servidores de Google (Cloud Functions, región São Paulo). GitHub lo publica solo.
+- El servidor también crea los avisos de **torneos, podio, organizador y denuncias** (antes solo aparecían al abrir la app).
+- Las respuestas del **dojo** (aceptado, rechazado, quitado) las envía el sensei al momento.
+

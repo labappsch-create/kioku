@@ -228,17 +228,26 @@ class DojosServicio {
           .snapshots()
           .map((d) => d.data()?['estado'] as String?);
 
-  Future<void> aceptar(String dojoId, String uid) =>
-      miembroRef(dojoId, uid).update({
-        'estado': estadoConfirmado,
-        'actualizado': FieldValue.serverTimestamp(),
-      });
+  /// El sensei [yo] acepta la solicitud de [uid] y se lo avisa.
+  Future<void> aceptar(String dojoId, String uid,
+      {required String yo, required String dojoNombre}) async {
+    await miembroRef(dojoId, uid).update({
+      'estado': estadoConfirmado,
+      'actualizado': FieldValue.serverTimestamp(),
+    });
+    unawaited(NotificacionesServicio(db: _db)
+        .dojoResultado(yo, uid, dojoId, dojoNombre, 'aceptado'));
+  }
 
-  /// Rechazar una solicitud o quitar a un miembro.
-  Future<void> quitar(String dojoId, String uid) {
+  /// Rechazar una solicitud o quitar a un miembro. Con [yo] y [dojoNombre]
+  /// (el sensei), se le avisa a la persona.
+  Future<void> quitar(String dojoId, String uid,
+      {required String yo, required String dojoNombre, required bool eraMiembro}) async {
     final lote = _db.batch();
     lote.delete(miembroRef(dojoId, uid));
     lote.delete(fichaRef(dojoId, uid));
-    return lote.commit();
+    await lote.commit();
+    unawaited(NotificacionesServicio(db: _db).dojoResultado(
+        yo, uid, dojoId, dojoNombre, eraMiembro ? 'quitado' : 'rechazado'));
   }
 }

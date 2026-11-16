@@ -331,6 +331,14 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.senseiUid == dest
           && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.nombre == d.titulo
           && get(/databases/$(database)/documents/dojos/$(d.dojoId)/miembros/$(yo)).data.estado == 'pendiente')
+        || (d.tipo == 'dojo_resultado'
+          && aid == 'dojo_res_' + d.dojoId
+          && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.senseiUid == yo
+          && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.nombre == d.titulo
+          && ((d.subtipo == 'aceptado'
+               && get(/databases/$(database)/documents/dojos/$(d.dojoId)/miembros/$(dest)).data.estado == 'confirmado')
+            || (d.subtipo in ['rechazado', 'quitado']
+               && !exists(/databases/$(database)/documents/dojos/$(d.dojoId)/miembros/$(dest)))))
         || (d.tipo == 'traspaso_dojo'
           && aid == 'trasp_' + d.dojoId
           && d.nombre == perfilDe(yo).nombreMostrado
@@ -356,7 +364,7 @@ service cloud.firestore {
         && d.actualizado == request.time
         && d.keys().hasOnly(['tipo', 'actorUid', 'nombre', 'claves', 'ultimaClave', 'muro',
              'duenoId', 'pid', 'cid', 'dojoId', 'iid', 'competenciaId', 'titulo', 'detalle',
-             'leido', 'actualizado'])
+             'subtipo', 'leido', 'actualizado'])
         && (resource == null || resource.data.tipo == d.tipo)
         // En los agrupados, cada uno solo se agrega a sí mismo (no borra a otros).
         && (!avisoAgrupado(d.tipo)
@@ -388,6 +396,16 @@ service cloud.firestore {
 
       // Sus comentarios y reacciones (para borrarlos si borra la cuenta).
       match /actividad/{aid} {
+        allow read, write: if esDueno(uid);
+      }
+
+      // Dirección de sus teléfonos para las notificaciones.
+      match /tokens/{token} {
+        allow read, write: if esDueno(uid);
+      }
+
+      // Qué avisos hacen sonar su teléfono.
+      match /ajustes/{id} {
         allow read, write: if esDueno(uid);
       }
 

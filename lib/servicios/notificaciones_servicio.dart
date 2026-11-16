@@ -82,6 +82,21 @@ class NotificacionesServicio {
     } catch (_) {}
   }
 
+  // ---------- Ajustes: qué avisos suenan en el teléfono ----------
+
+  DocumentReference<Map<String, dynamic>> _ajustes(String uid) =>
+      _db.collection('usuarios').doc(uid).collection('ajustes').doc('avisos');
+
+  /// Tipos de aviso apagados por la persona ({tipo: false}). Lo que no
+  /// aparece está encendido.
+  Stream<Map<String, bool>> ajustes(String uid) => _ajustes(uid).snapshots().map((d) => {
+        for (final e in (d.data() ?? {}).entries)
+          if (e.value is bool) e.key: e.value as bool,
+      });
+
+  Future<void> guardarAjuste(String uid, String tipo, bool encendido) =>
+      _ajustes(uid).set({tipo: encendido}, SetOptions(merge: true));
+
   // ---------- Avisos para otra persona ----------
 
   Future<String?> _miNombre(String uid) async {
@@ -212,112 +227,18 @@ class NotificacionesServicio {
         clave: iid,
       );
 
-  // ---------- Avisos que detecta la propia app ----------
-
-  Future<void> _propio(String uid, String id, Map<String, Object?> datos) async {
-    try {
-      await _avisos(uid).doc(id).set({
-        ...datos,
-        'leido': false,
-        'actualizado': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {}
-  }
-
-  /// Crea el aviso solo si no existe (para no repetirlo cada vez).
-  Future<void> _propioUnaVez(String uid, String id, Map<String, Object?> datos) async {
-    try {
-      final d = await _avisos(uid).doc(id).get();
-      if (d.exists) return;
-    } catch (_) {
-      return;
-    }
-    await _propio(uid, id, datos);
-  }
-
-  /// El dojo aceptó, rechazó o quitó a la persona.
-  Future<void> resultadoDojo(String uid,
-          {required String dojoId, required String subtipo, required String texto}) =>
-      _propio(uid, 'dojo_res_$dojoId', {
+  /// El sensei avisa a la persona que su solicitud al dojo fue aceptada,
+  /// rechazada, o que la quitó. [subtipo]: aceptado, rechazado o quitado.
+  /// Se llama DESPUÉS de cambiar el miembro (las reglas lo comprueban).
+  Future<void> dojoResultado(
+          String yo, String dest, String dojoId, String dojoNombre, String subtipo) =>
+      _paraOtro(yo, dest, 'dojo_res_$dojoId', {
         'tipo': 'dojo_resultado',
         'subtipo': subtipo,
         'dojoId': dojoId,
-        'texto': texto,
+        'titulo': dojoNombre,
       });
 
-  /// Torneo cancelado, suspendido, reactivado o con fecha nueva.
-  Future<void> torneo(String uid, Competencia c) => _propio(uid, 'torneo_${c.id}', {
-        'tipo': 'torneo',
-        'competenciaId': c.id,
-        'texto': c.avisoTexto ?? 'Hay novedades en el torneo "${c.nombre}".',
-      });
-
-  Future<void> organizadorRechazado(String uid, String motivo) =>
-      _propio(uid, 'organizador', {
-        'tipo': 'organizador',
-        'texto': 'Tu solicitud para ser organizador fue rechazada.\nMotivo: $motivo\n'
-            'Puedes enviar otra desde Torneos → 🏆 → Ser organizador.',
-      });
-
-  /// Si un administrador la aprobó hace poco, avisa una sola vez.
-  Future<void> revisarOrganizador(String uid) async {
-    try {
-      final d = await _db.collection('organizadores').doc(uid).get();
-      final aprobado = d.data()?['aprobado'];
-      if (aprobado is! Timestamp) return;
-      if (DateTime.now().difference(aprobado.toDate()) > duracionAvisos) return;
-      await _propioUnaVez(uid, 'organizador_ok', {
-        'tipo': 'organizador',
-        'texto': 'Tu solicitud para ser organizador fue aprobada ✓\n'
-            'Ya puedes crear torneos regionales, nacionales e internacionales.',
-      });
-    } catch (_) {}
-  }
-
-  /// Avisa de los podios nuevos (una vez por cada uno).
-  Future<void> revisarPodios(String uid) async {
-    try {
-      final r = await _db.collection('podios').where('atletaUid', isEqualTo: uid).get();
-      for (final d in r.docs) {
-        final p = d.data();
-        final cuando = p['actualizado'];
-        if (cuando is Timestamp &&
-            DateTime.now().difference(cuando.toDate()) > duracionAvisos) {
-          continue;
-        }
-        final puesto = (p['puesto'] as num?)?.toInt() ?? 0;
-        await _propioUnaVez(uid, 'podio_${d.id}', {
-          'tipo': 'podio',
-          'competenciaId': p['competenciaId'],
-          'texto': '¡Quedaste en el $puesto.º lugar en ${p['competenciaNombre'] ?? ''}!\n'
-              '${p['categoriaNombre'] ?? ''}',
-        });
-      }
-    } catch (_) {}
-  }
-
-  static final Set<String> _denunciasVistas = {};
-
-  /// (Administradores) Avisa de las denuncias nuevas, una vez por cada una.
-  Future<void> revisarDenuncias(
-      String uid, List<QueryDocumentSnapshot<Map<String, dynamic>>> denuncias) async {
-    for (final d in denuncias) {
-      if (!_denunciasVistas.add(d.id)) continue;
-      final datos = d.data();
-      final creado = datos['creado'];
-      if (creado is Timestamp &&
-          DateTime.now().difference(creado.toDate()) > duracionAvisos) {
-        continue;
-      }
-      final tipo = switch (datos['tipo']) {
-        'publicacion' => 'una publicación',
-        'comentario' => 'un comentario',
-        _ => 'un perfil',
-      };
-      await _propioUnaVez(uid, 'denuncia_${d.id}', {
-        'tipo': 'denuncia',
-        'texto': 'Nueva denuncia sobre $tipo: ${datos['motivo'] ?? ''}',
-      });
-    }
-  }
+  // Los avisos de torneos, podio, organizador y denuncias los crea el
+  // servidor (functions/index.js).
 }

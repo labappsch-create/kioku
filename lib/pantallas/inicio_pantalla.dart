@@ -8,9 +8,9 @@ import '../servicios/admin_servicio.dart';
 import '../servicios/competencias_servicio.dart';
 import '../servicios/dojos_servicio.dart';
 import '../servicios/notificaciones_servicio.dart';
-import '../servicios/social_servicio.dart';
 import '../servicios/errores.dart';
 import '../servicios/perfiles_servicio.dart';
+import '../servicios/push_servicio.dart';
 import '../widgets/tarjeta_perfil.dart';
 import 'acerca_pantalla.dart';
 import 'notificaciones_pantalla.dart';
@@ -63,43 +63,23 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
   Future<Perfil?> _cargar() async {
     final perfil = await _servicio.leerMiPerfil(widget.uid);
     if (perfil == null) return null;
-    // Recalcula la parte pública y revisa la respuesta del dojo.
-    final (actual, aviso) = await _servicio.sincronizar(widget.uid, perfil);
-    // Lo demás (historial y avisos de la campanita) va sin hacer esperar.
-    unawaited(_revisarAvisos(aviso));
+    // Recalcula la parte pública y revisa si el dojo respondió. El aviso de
+    // la respuesta lo deja el sensei (ver DojosServicio.aceptar y quitar).
+    final (actual, _) = await _servicio.sincronizar(widget.uid, perfil);
+    // Lo demás (historial y limpieza de la campanita) va sin hacer esperar.
+    unawaited(_tareasSecundarias());
     return actual;
   }
 
-  /// Revisa lo que hay que avisar en la campanita. Si algo falla, sigue.
-  Future<void> _revisarAvisos(AvisoDojo? aviso) async {
+  /// Los avisos de torneos, podio, organizador y denuncias los crea el
+  /// servidor (functions/index.js). Si algo falla, sigue.
+  Future<void> _tareasSecundarias() async {
     final uid = widget.uid;
-    final avisos = NotificacionesServicio();
-    if (aviso != null) {
-      await avisos.resultadoDojo(uid,
-          dojoId: aviso.dojoId, subtipo: aviso.subtipo, texto: aviso.mensaje);
-    }
     // Pasa al historial las competencias terminadas.
     try {
       await CompetenciasServicio().sincronizarHistorial(uid);
     } catch (_) {}
-    // Solicitud de organizador rechazada: aviso y se borra para poder enviar otra.
-    try {
-      final s = await AdminServicio().leerMiSolicitud(uid);
-      if (s != null && s.rechazada) {
-        await avisos.organizadorRechazado(uid, s.motivo);
-        await AdminServicio().cancelarSolicitud(uid);
-      }
-    } catch (_) {}
-    await avisos.revisarOrganizador(uid);
-    // Torneos cancelados, suspendidos, reactivados o con fecha nueva.
-    try {
-      for (final c in await CompetenciasServicio().avisosPendientes(uid)) {
-        await avisos.torneo(uid, c);
-        await CompetenciasServicio().marcarAvisoVisto(uid, c);
-      }
-    } catch (_) {}
-    await avisos.revisarPodios(uid);
-    await avisos.limpiarViejos(uid);
+    await NotificacionesServicio().limpiarViejos(uid);
   }
 
   void _recargar() => setState(() => _carga = _cargar());
@@ -125,7 +105,7 @@ class _ComprobarPerfilState extends State<ComprobarPerfil> {
                   FilledButton(
                       onPressed: _recargar, child: const Text('Reintentar')),
                   TextButton(
-                      onPressed: () => FirebaseAuth.instance.signOut(),
+                      onPressed: () => PushServicio.salir(),
                       child: const Text('Cerrar sesión')),
                 ]),
               ),
@@ -170,7 +150,6 @@ class InicioPantalla extends StatefulWidget {
 class _InicioPantallaState extends State<InicioPantalla> {
   int _pestana = 0;
   StreamSubscription<bool>? _admin;
-  StreamSubscription<Object?>? _denuncias;
   StreamSubscription<String?>? _miDojo;
   String? _dojoEscuchado;
 
@@ -183,6 +162,7 @@ class _InicioPantallaState extends State<InicioPantalla> {
         .listen(_siEsAdmin, onError: (_) {});
     _escucharDojo();
     _conectarNavegacion();
+    PushServicio.iniciar(widget.uid, alTocar: _abrirCampanita);
   }
 
   @override
@@ -195,20 +175,19 @@ class _InicioPantallaState extends State<InicioPantalla> {
   @override
   void dispose() {
     _admin?.cancel();
-    _denuncias?.cancel();
     _miDojo?.cancel();
     super.dispose();
   }
 
-  /// Los administradores reciben en la campanita las denuncias nuevas.
-  void _siEsAdmin(bool v) {
-    Sesion.esAdmin = v;
-    if (v && _denuncias == null) {
-      _denuncias = SocialServicio().denuncias().listen(
-            (docs) => NotificacionesServicio().revisarDenuncias(widget.uid, docs),
-            onError: (_) {},
-          );
-    }
+  void _siEsAdmin(bool v) => Sesion.esAdmin = v;
+
+  /// Se tocó una notificación del teléfono: abre la campanita.
+  void _abrirCampanita() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const NotificacionesPantalla()));
+    });
   }
 
   /// Si el dojo responde mientras la app está abierta, se recarga el perfil
@@ -331,7 +310,7 @@ class MiPerfilPantalla extends StatelessWidget {
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+            onPressed: () => PushServicio.salir(),
           ),
         ],
       ),

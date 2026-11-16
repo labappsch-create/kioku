@@ -374,6 +374,26 @@ await prueba('El autor borra reacciones de su publicación', true,
 await prueba('Guarda su actividad', true,
   db('beto').doc('usuarios/beto/actividad/x').set({ ruta: 'a/b' }));
 
+// ---------- Avisos al teléfono ----------
+await prueba('Cada persona guarda la dirección de su teléfono', true,
+  db('ana').doc('usuarios/ana/tokens/abc:123').set({ creado: ahora() }));
+await prueba('Nadie ve los teléfonos de otro', false,
+  db('beto').collection('usuarios/ana/tokens').get());
+await prueba('Cada persona guarda sus ajustes de avisos', true,
+  db('ana').doc('usuarios/ana/ajustes/avisos').set({ reaccion: false }));
+await prueba('Nadie cambia los ajustes de otro', false,
+  db('beto').doc('usuarios/ana/ajustes/avisos').set({ reaccion: true }));
+const resDojo = (subtipo, actor = 'kenji') => ({
+  tipo: 'dojo_resultado', actorUid: actor, subtipo, dojoId: 'd1', titulo: 'Dojo Uno',
+  leido: false, actualizado: ahora(),
+});
+await prueba('El sensei avisa a un miembro que fue aceptado', true,
+  db('kenji').doc('notificaciones/mia/avisos/dojo_res_d1').set(resDojo('aceptado')));
+await prueba('Otro NO avisa a nombre del dojo', false,
+  db('ana').doc('notificaciones/mati/avisos/dojo_res_d1').set(resDojo('aceptado', 'ana')));
+await prueba('NO se avisa "quitado" a quien sigue en el dojo', false,
+  db('kenji').doc('notificaciones/mati/avisos/dojo_res_d1').set(resDojo('quitado')));
+
 // ---------- Fotos (Storage) ----------
 await prueba('Subir foto a mi publicación', true,
   subir(st('ana'), 'publicaciones/ana/p1/1.jpg'));

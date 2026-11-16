@@ -70,7 +70,52 @@ class Aviso {
         return 'Tu inscripción en $titulo fue confirmada ✓\n$detalle';
       case 'inscripcion_nueva':
         return '$_quienes ${_varios ? 'se inscribieron' : 'se inscribió'} en $titulo.';
+      case 'dojo_resultado':
+        if (texto.isNotEmpty) return texto;
+        switch (subtipo) {
+          case 'aceptado':
+            return '$titulo te aceptó como miembro ✓';
+          case 'quitado':
+            return 'Ya no eres miembro de $titulo.';
+        }
+        return '$titulo rechazó tu solicitud.';
     }
     return texto;
   }
 }
+
+/// Un tipo de aviso que la persona puede encender o apagar en sus ajustes.
+class TipoAviso {
+  const TipoAviso(this.id, this.nombre, {this.soloAdmin = false});
+
+  final String id;
+  final String nombre;
+  final bool soloAdmin;
+}
+
+/// Los tipos de aviso, por grupo (pantalla de ajustes de avisos).
+const Map<String, List<TipoAviso>> gruposAvisos = {
+  'Publicaciones': [
+    TipoAviso('reaccion', 'Reacciones a mis publicaciones'),
+    TipoAviso('comentario', 'Comentarios en mis publicaciones'),
+  ],
+  'Amigos': [
+    TipoAviso('solicitud_amistad', 'Solicitudes de amistad'),
+    TipoAviso('amistad_aceptada', 'Amistades aceptadas'),
+  ],
+  'Dojo': [
+    TipoAviso('solicitud_dojo', 'Solicitudes para unirse a mi dojo'),
+    TipoAviso('traspaso_dojo', 'Traspasos de dojo'),
+    TipoAviso('dojo_resultado', 'Respuesta de un dojo a mi solicitud'),
+  ],
+  'Torneos': [
+    TipoAviso('inscripcion_confirmada', 'Inscripción confirmada'),
+    TipoAviso('inscripcion_nueva', 'Nuevas inscripciones en mi torneo'),
+    TipoAviso('torneo', 'Cambios en mis torneos'),
+    TipoAviso('podio', 'Quedé en el podio'),
+    TipoAviso('organizador', 'Solicitud de organizador'),
+  ],
+  'Administración': [
+    TipoAviso('denuncia', 'Denuncias nuevas', soloAdmin: true),
+  ],
+};
