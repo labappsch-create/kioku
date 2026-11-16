@@ -383,3 +383,26 @@ Se hace por partes:
 - Se guardan **30 días**. Cada aviso se puede borrar.
 - Si una reacción o un comentario llega a un aviso agrupado, ese aviso vuelve a aparecer como nuevo.
 
+## Mejoras básicas
+
+- **Olvidé mi contraseña:** en la pantalla de entrada. Llega un correo de Google (en español) con un enlace para crear una contraseña nueva.
+- **Buscar por apellido:** la lupa encuentra a una persona escribiendo el comienzo de **cualquier palabra** de su nombre. Las cuentas antiguas aparecen así después de abrir la app una vez con la versión nueva.
+
+### Borrar mi cuenta
+
+- Está en **Mi perfil**. Pide la contraseña para confirmar.
+- **Lo personal se borra todo:** perfil, fotos, portada, publicaciones, comentarios, reacciones, amistades, solicitudes, bloqueos, avisos, inscripciones e historial.
+- **Resultados de torneos terminados:** se quedan en podios y rankings como **"Atleta eliminado"** (los puntos del dojo se mantienen).
+- **Si es sensei:** no puede borrar la cuenta mientras tenga dojos. Primero debe **traspasarlos**.
+- **Si organiza torneos regionales o superiores:** primero debe **cancelar** los que no han terminado. Los terminados se quedan con **"Organizador eliminado"**; si hay que corregir algo, lo hacen los administradores.
+- El **administrador principal** (labappsch@gmail.com) **no puede** borrar su cuenta.
+- Los demás administradores y organizadores pierden esos permisos al borrarla.
+
+### Traspasar dojo
+
+- El sensei puede traspasar su dojo en cualquier momento (no solo al borrar la cuenta).
+- Solo a un **miembro confirmado** de ese dojo con rol **Entrenador** o **Atleta y entrenador**.
+- Quien lo recibe debe **aceptar** (le llega un aviso). Hasta entonces el dojo sigue con el sensei actual, que puede cancelar el traspaso.
+- El sensei anterior **sigue como miembro confirmado**.
+- Los **torneos locales** del dojo (también los terminados) **pasan al nuevo sensei**.
+

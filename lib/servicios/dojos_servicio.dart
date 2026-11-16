@@ -1,7 +1,24 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../modelos/dojo.dart';
 import '../modelos/perfil.dart' show normalizarParaBuscar;
+import 'notificaciones_servicio.dart';
+
+/// Traspaso pendiente de un dojo (colección `traspasos/{dojoId}`).
+class Traspaso {
+  Traspaso(this.datos);
+
+  final Map<String, dynamic> datos;
+
+  String get dojoId => datos['dojoId'] as String? ?? '';
+  String get dojoNombre => datos['dojoNombre'] as String? ?? '';
+  String get deUid => datos['deUid'] as String? ?? '';
+  String get deNombre => datos['deNombre'] as String? ?? '';
+  String get paraUid => datos['paraUid'] as String? ?? '';
+  String get paraNombre => datos['paraNombre'] as String? ?? '';
+}
 
 /// Guarda y lee dojos en Firestore.
 ///
@@ -26,6 +43,103 @@ class DojosServicio {
   /// Datos para competir de un practicante. Solo los ven él y el sensei.
   DocumentReference<Map<String, dynamic>> fichaRef(String dojoId, String uid) =>
       _publicos.doc(dojoId).collection('fichas').doc(uid);
+
+  // ---------- Traspaso ----------
+
+  CollectionReference<Map<String, dynamic>> get _traspasos =>
+      _db.collection('traspasos');
+
+  /// Traspaso pendiente del dojo (solo lo leen el sensei y el destinatario).
+  Stream<Traspaso?> traspaso(String dojoId) => _traspasos.doc(dojoId).snapshots().map(
+      (d) => d.data() == null ? null : Traspaso(d.data()!));
+
+  /// Traspasos que esperan que esta persona acepte.
+  Stream<List<Traspaso>> traspasosParaMi(String uid) => _traspasos
+      .where('paraUid', isEqualTo: uid)
+      .snapshots()
+      .map((r) => [for (final d in r.docs) Traspaso(d.data())]);
+
+  Future<void> proponerTraspaso({
+    required String dojoId,
+    required String dojoNombre,
+    required String deUid,
+    required String deNombre,
+    required String paraUid,
+    required String paraNombre,
+  }) async {
+    await _traspasos.doc(dojoId).set({
+      'dojoId': dojoId,
+      'dojoNombre': dojoNombre,
+      'deUid': deUid,
+      'deNombre': deNombre,
+      'paraUid': paraUid,
+      'paraNombre': paraNombre,
+      'creado': FieldValue.serverTimestamp(),
+    });
+    unawaited(NotificacionesServicio(db: _db)
+        .traspasoDojo(deUid, paraUid, dojoId, dojoNombre));
+  }
+
+  /// Cancelar (el sensei) o rechazar (el destinatario).
+  Future<void> quitarTraspaso(String dojoId) => _traspasos.doc(dojoId).delete();
+
+  /// Acepta el traspaso: queda como sensei a cargo, y los torneos locales
+  /// del dojo (con sus inscripciones) pasan a su nombre.
+  Future<void> aceptarTraspaso(Traspaso t, String uid, String nombre) async {
+    final cambios = {
+      'senseiUid': uid,
+      'senseiNombre': nombre,
+      'actualizado': FieldValue.serverTimestamp(),
+    };
+    final lote = _db.batch();
+    lote.update(_publicos.doc(t.dojoId), cambios);
+    lote.update(_privado(t.dojoId), cambios);
+    lote.delete(_traspasos.doc(t.dojoId));
+    await lote.commit();
+    await pasarTorneosLocales(t.dojoId, uid, nombre);
+  }
+
+  Future<void> _enLotes(
+      List<(DocumentReference<Map<String, dynamic>>, Map<String, Object?>)> cambios) async {
+    // De a 400 (Firebase acepta hasta 500 cambios juntos).
+    for (var i = 0; i < cambios.length; i += 400) {
+      final lote = _db.batch();
+      for (final (ref, datos) in cambios.skip(i).take(400)) {
+        lote.update(ref, datos);
+      }
+      await lote.commit();
+    }
+  }
+
+  /// Pasa al sensei actual los torneos locales del dojo y las inscripciones
+  /// relacionadas. Se puede repetir sin problema.
+  Future<void> pasarTorneosLocales(String dojoId, String uid, String nombre) async {
+    final comps =
+        await _db.collection('competencias').where('dojoId', isEqualTo: dojoId).get();
+    await _enLotes([
+      for (final c in comps.docs)
+        if (c.data()['organizadorUid'] != uid)
+          (c.reference, {'organizadorUid': uid, 'organizadorNombre': nombre}),
+    ]);
+    final insc = _db.collection('inscripciones');
+    for (final c in comps.docs) {
+      final r = await insc.where('competenciaId', isEqualTo: c.id).get();
+      await _enLotes([
+        for (final d in r.docs)
+          if (d.data()['organizadorUid'] != uid)
+            (d.reference, {
+              'organizadorUid': uid,
+              if (d.data()['dojoId'] == dojoId && d.data()['senseiUid'] != uid) 'senseiUid': uid,
+            }),
+      ]);
+    }
+    // Atletas del dojo inscritos en torneos de otros: su sensei ahora es otro.
+    final delDojo = await insc.where('dojoId', isEqualTo: dojoId).get();
+    await _enLotes([
+      for (final d in delDojo.docs)
+        if (d.data()['senseiUid'] != uid) (d.reference, {'senseiUid': uid}),
+    ]);
+  }
 
   /// Crea un dojo y devuelve su identificador.
   Future<String> crear(Dojo dojo) async {

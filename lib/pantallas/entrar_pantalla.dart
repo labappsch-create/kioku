@@ -27,6 +27,66 @@ class _EntrarPantallaState extends State<EntrarPantalla> {
     super.dispose();
   }
 
+  /// Envía un correo para crear una contraseña nueva.
+  Future<void> _olvide() async {
+    final correo = TextEditingController(text: _correo.text.trim());
+    final enviar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recuperar contraseña'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Escribe el correo de tu cuenta. Te enviaremos un enlace '
+              'para crear una contraseña nueva.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: correo,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            decoration: const InputDecoration(
+                labelText: 'Correo', border: OutlineInputBorder()),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Enviar')),
+        ],
+      ),
+    );
+    final texto = correo.text.trim();
+    correo.dispose();
+    if (enviar != true || !mounted) return;
+    final mensajes = ScaffoldMessenger.of(context);
+    if (!texto.contains('@')) {
+      mensajes.showSnackBar(const SnackBar(content: Text('Escribe un correo válido.')));
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.setLanguageCode('es');
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: texto);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Revisa tu correo'),
+          content: Text(
+              'Si existe una cuenta con $texto, te llegará un correo con un enlace '
+              'para crear una contraseña nueva. Revisa también la carpeta de spam.'),
+          actions: [
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(), child: const Text('Entendido')),
+          ],
+        ),
+      );
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
   Future<void> _entrar() async {
     if (!_form.currentState!.validate()) return;
     setState(() {
@@ -110,7 +170,12 @@ class _EntrarPantallaState extends State<EntrarPantalla> {
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Entrar'),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 4),
+                  TextButton(
+                    onPressed: _cargando ? null : _olvide,
+                    child: const Text('¿Olvidaste tu contraseña?'),
+                  ),
+                  const SizedBox(height: 4),
                   TextButton(
                     onPressed: _cargando
                         ? null

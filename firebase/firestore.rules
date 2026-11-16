@@ -253,6 +253,25 @@ service cloud.firestore {
         && d.texto is string && d.texto.size() > 0 && d.texto.size() <= 1000;
     }
 
+    // ---------- Ayudas: traspaso de dojo y borrar cuenta ----------
+
+    // La persona está borrando su cuenta (lo marca al empezar).
+    function borrando() {
+      return exists(/databases/$(database)/documents/eliminaciones/$(request.auth.uid));
+    }
+
+    // El dojo tiene un traspaso pendiente para quien hace la petición.
+    function traspasoParaMi(dojoId) {
+      return get(/databases/$(database)/documents/traspasos/$(dojoId)).data.paraUid == request.auth.uid;
+    }
+
+    // Torneo terminado (pasó el último día) o cancelado (o ya no existe).
+    function torneoTerminado(cid) {
+      return !exists(/databases/$(database)/documents/competencias/$(cid))
+        || get(/databases/$(database)/documents/competencias/$(cid)).data.get('situacion', 'normal') == 'cancelada'
+        || request.time > get(/databases/$(database)/documents/competencias/$(cid)).data.fechaFin + duration.value(1, 'd');
+    }
+
     // ---------- Ayudas de las notificaciones ----------
 
     // Avisos que juntan a varias personas en uno solo.
@@ -312,6 +331,12 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.senseiUid == dest
           && get(/databases/$(database)/documents/dojos/$(d.dojoId)).data.nombre == d.titulo
           && get(/databases/$(database)/documents/dojos/$(d.dojoId)/miembros/$(yo)).data.estado == 'pendiente')
+        || (d.tipo == 'traspaso_dojo'
+          && aid == 'trasp_' + d.dojoId
+          && d.nombre == perfilDe(yo).nombreMostrado
+          && get(/databases/$(database)/documents/traspasos/$(d.dojoId)).data.paraUid == dest
+          && get(/databases/$(database)/documents/traspasos/$(d.dojoId)).data.deUid == yo
+          && get(/databases/$(database)/documents/traspasos/$(d.dojoId)).data.dojoNombre == d.titulo)
         || (d.tipo == 'inscripcion_confirmada'
           && aid == 'insc_ok_' + d.iid
           && inscripcionAvisoOk(dest, d,
@@ -361,6 +386,11 @@ service cloud.firestore {
         allow read, write: if esDueno(uid);
       }
 
+      // Sus comentarios y reacciones (para borrarlos si borra la cuenta).
+      match /actividad/{aid} {
+        allow read, write: if esDueno(uid);
+      }
+
       // Dojos que sigue.
       match /siguiendo/{dojoId} {
         allow read, write: if esDueno(uid);
@@ -377,7 +407,7 @@ service cloud.firestore {
         // Menores de 18: solo nombre de pila, dojo y grado.
         && (request.resource.data.esMenor == false
             || request.resource.data.keys().hasOnly([
-                 'esMenor', 'nombreMostrado', 'nombreBusqueda',
+                 'esMenor', 'nombreMostrado', 'nombreBusqueda', 'palabrasBusqueda',
                  'gradoId', 'dojo', 'dojoId', 'dojoConfirmado', 'actualizado']));
 
       // Competencias en las que participó. Las ven otros solo si es adulto
@@ -404,6 +434,16 @@ service cloud.firestore {
       allow update: if conCuenta()
         && resource.data.senseiUid == request.auth.uid
         && request.resource.data.senseiUid == request.auth.uid;
+      // Quien acepta un traspaso queda como sensei a cargo. Debe ser
+      // entrenador y miembro confirmado del dojo.
+      allow update: if conCuenta()
+        && traspasoParaMi(dojoId)
+        && esEntrenador()
+        && get(/databases/$(database)/documents/dojos/$(dojoId)/miembros/$(request.auth.uid)).data.estado == 'confirmado'
+        && request.resource.data.senseiUid == request.auth.uid
+        && request.resource.data.senseiNombre == perfilDe(request.auth.uid).nombreMostrado
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['senseiUid', 'senseiNombre', 'actualizado']);
 
       // Solicitudes y miembros. El documento lleva el uid del practicante.
       match /miembros/{uid} {
@@ -455,6 +495,37 @@ service cloud.firestore {
       allow update: if conCuenta()
         && resource.data.senseiUid == request.auth.uid
         && request.resource.data.senseiUid == request.auth.uid;
+      allow update: if conCuenta()
+        && traspasoParaMi(dojoId)
+        && getAfter(/databases/$(database)/documents/dojos/$(dojoId)).data.senseiUid == request.auth.uid
+        && request.resource.data.senseiUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['senseiUid', 'senseiNombre', 'actualizado']);
+    }
+
+    // Traspaso pendiente de un dojo (lo propone el sensei, lo acepta el otro).
+    match /traspasos/{dojoId} {
+      allow read: if conCuenta()
+        && (resource == null
+            || resource.data.deUid == request.auth.uid
+            || resource.data.paraUid == request.auth.uid);
+      allow create, update: if esSenseiDe(dojoId)
+        && request.resource.data.keys().hasOnly(
+             ['dojoId', 'dojoNombre', 'deUid', 'deNombre', 'paraUid', 'paraNombre', 'creado'])
+        && request.resource.data.dojoId == dojoId
+        && request.resource.data.deUid == request.auth.uid
+        && request.resource.data.paraUid is string
+        && request.resource.data.paraUid != request.auth.uid
+        && get(/databases/$(database)/documents/dojos/$(dojoId)/miembros/$(request.resource.data.paraUid)).data.estado == 'confirmado'
+        && request.resource.data.dojoNombre == get(/databases/$(database)/documents/dojos/$(dojoId)).data.nombre
+        && request.resource.data.deNombre == perfilDe(request.auth.uid).nombreMostrado;
+      allow delete: if conCuenta()
+        && (resource.data.deUid == request.auth.uid || resource.data.paraUid == request.auth.uid);
+    }
+
+    // Marca que la persona está borrando su cuenta.
+    match /eliminaciones/{uid} {
+      allow read, create, delete: if esDueno(uid);
     }
 
     // ---------- Administración ----------
@@ -465,14 +536,14 @@ service cloud.firestore {
       allow read: if conCuenta();
       allow create: if esAdmin()
         && request.resource.data.keys().hasOnly(['nombre', 'creado']);
-      allow delete: if esAdmin();
+      allow delete: if esAdmin() || esDueno(uid);
     }
 
     match /organizadores/{uid} {
       allow read: if conCuenta();
       allow create: if esAdmin()
         && request.resource.data.keys().hasOnly(['nombre', 'aprobado']);
-      allow delete: if esAdmin();
+      allow delete: if esAdmin() || esDueno(uid);
     }
 
     match /solicitudes_organizador/{uid} {
@@ -517,6 +588,14 @@ service cloud.firestore {
             || (request.resource.data.get('motivo', '') is string
                 && request.resource.data.get('motivo', '').size() > 0));
 
+      // Torneos locales: pasan al nuevo sensei del dojo tras un traspaso.
+      allow update: if conCuenta()
+        && resource.data.get('dojoId', null) is string
+        && getAfter(/databases/$(database)/documents/dojos/$(resource.data.dojoId)).data.senseiUid == request.auth.uid
+        && request.resource.data.organizadorUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['organizadorUid', 'organizadorNombre']);
+
       // Solo un torneo cancelado se puede borrar, y solo su organizador.
       allow delete: if conCuenta()
         && resource.data.organizadorUid == request.auth.uid
@@ -548,11 +627,35 @@ service cloud.firestore {
             || resource.data.senseiUid == request.auth.uid
             || resource.data.organizadorUid == request.auth.uid
             || esAdmin());
+      // Tras un traspaso: el nuevo organizador ve las inscripciones de su
+      // torneo, y el nuevo sensei las de su dojo (para pasarlas a su nombre).
+      allow list: if conCuenta()
+        && get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)).data.organizadorUid == request.auth.uid;
+      allow list: if conCuenta()
+        && get(/databases/$(database)/documents/dojos/$(resource.data.dojoId)).data.senseiUid == request.auth.uid;
       allow create: if conCuenta() && inscripcionValida(iid, request.resource.data);
       // Al borrar un torneo cancelado, el organizador borra sus inscripciones.
       allow delete: if conCuenta()
         && resource.data.organizadorUid == request.auth.uid
         && get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)).data.get('situacion', 'normal') == 'cancelada';
+      // Tras un traspaso, pasan al nuevo organizador o al nuevo sensei.
+      allow update: if conCuenta()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['organizadorUid', 'senseiUid'])
+        && (request.resource.data.organizadorUid == resource.data.organizadorUid
+            || (request.resource.data.organizadorUid == request.auth.uid
+                && get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)).data.organizadorUid == request.auth.uid))
+        && (request.resource.data.senseiUid == resource.data.senseiUid
+            || (request.resource.data.senseiUid == request.auth.uid
+                && get(/databases/$(database)/documents/dojos/$(resource.data.dojoId)).data.senseiUid == request.auth.uid));
+      // Al borrar su cuenta, el atleta borra sus inscripciones (si el torneo
+      // sigue activo, junto con el ajuste del conteo de la categoría).
+      allow delete: if conCuenta()
+        && resource.data.atletaUid == request.auth.uid
+        && borrando()
+        && (torneoTerminado(resource.data.competenciaId)
+            || getAfter(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos
+                 == get(/databases/$(database)/documents/competencias/$(resource.data.competenciaId)/categorias/$(resource.data.categoriaId)).data.inscritos - 1);
       // Solo el organizador confirma.
       allow update: if conCuenta()
         && resource.data.organizadorUid == request.auth.uid
@@ -577,6 +680,11 @@ service cloud.firestore {
       allow create, update: if puedeCargarResultados(request.resource.data.competenciaId)
         && podioValido(pid, request.resource.data);
       allow delete: if puedeCargarResultados(resource.data.competenciaId);
+      // Al borrar su cuenta, el atleta queda como "Atleta eliminado".
+      allow update: if conCuenta()
+        && resource.data.atletaUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['atletaNombre'])
+        && request.resource.data.atletaNombre == 'Atleta eliminado';
     }
 
     // ---------- Red social ----------
@@ -689,7 +797,7 @@ service cloud.firestore {
           && reaccionValida(request.resource.data)
           && puedeVerPersona(autorUid,
                get(/databases/$(database)/documents/muros/$(autorUid)/publicaciones/$(pid)).data);
-        allow delete: if esDueno(uid);
+        allow delete: if esDueno(uid) || esDueno(autorUid) || senseiDeMenor(autorUid) || esAdmin();
       }
     }
 
@@ -723,7 +831,7 @@ service cloud.firestore {
           && reaccionValida(request.resource.data)
           && puedeVerDojo(dojoId,
                get(/databases/$(database)/documents/muros_dojo/$(dojoId)/publicaciones/$(pid)).data);
-        allow delete: if esDueno(uid);
+        allow delete: if esDueno(uid) || esSenseiDe(dojoId) || esAdmin();
       }
     }
 

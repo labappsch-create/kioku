@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../datos/grados.dart';
 import '../../modelos/dojo.dart';
+import '../../modelos/perfil.dart';
 import '../../modelos/publicacion.dart';
 import '../../servicios/dojos_servicio.dart';
 import '../../servicios/errores.dart';
@@ -78,6 +79,7 @@ class VerDojoPantalla extends StatelessWidget {
               Text(dojo.organizacion,
                   textAlign: TextAlign.center, style: textos.titleSmall),
               const SizedBox(height: 12),
+              if (!esSensei && uid != null) _TraspasoParaMi(dojoId: dojoId, uid: uid),
               if (!esSensei) _BotonSeguir(dojoId: dojoId, nombre: dojo.nombre),
               const SizedBox(height: 16),
               if (esSensei) ...[
@@ -344,9 +346,226 @@ class _AccionesSensei extends StatelessWidget {
               label: const Text('Editar dojo'),
               onPressed: () => _editar(context),
             ),
+            const SizedBox(height: 8),
+            _TraspasoSensei(dojoId: dojoId, nombre: nombre, uid: uid),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// El sensei propone traspasar el dojo, o cancela un traspaso pendiente.
+class _TraspasoSensei extends StatelessWidget {
+  const _TraspasoSensei({required this.dojoId, required this.nombre, required this.uid});
+
+  final String dojoId;
+  final String nombre;
+  final String uid;
+
+  Future<void> _proponer(BuildContext context) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    final servicio = DojosServicio();
+    final miembros = [
+      for (final m in await servicio.miembros(dojoId, estadoConfirmado).first)
+        if (m.uid != uid) m,
+    ];
+    if (!context.mounted) return;
+    if (miembros.isEmpty) {
+      mensajes.showSnackBar(const SnackBar(
+          content: Text('Tu dojo no tiene otros miembros confirmados a quien traspasarlo.')));
+      return;
+    }
+    final elegido = await showModalBottomSheet<Miembro>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.7),
+          child: ListView(shrinkWrap: true, children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                '¿A quién le traspasas el dojo? Debe tener el rol Entrenador '
+                '(o Atleta y entrenador) en su perfil para poder aceptarlo.',
+              ),
+            ),
+            for (final m in miembros)
+              ListTile(
+                leading: gradoPorId(m.gradoId) == null
+                    ? null
+                    : Cinturon(grado: gradoPorId(m.gradoId)!),
+                title: Text(m.nombre),
+                onTap: () => Navigator.of(ctx).pop(m),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (elegido == null || !context.mounted) return;
+    final si = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Traspasar dojo'),
+        content: Text(
+            '¿Traspasar "$nombre" a ${elegido.nombre}? Le llegará un aviso para aceptar.\n\n'
+            'Cuando acepte, quedará como sensei a cargo y los torneos locales del dojo '
+            'pasarán a su nombre. Tú seguirás como miembro del dojo.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Traspasar')),
+        ],
+      ),
+    );
+    if (si != true) return;
+    try {
+      final perfil = await PerfilesServicio().leerMiPerfil(uid);
+      await servicio.proponerTraspaso(
+        dojoId: dojoId,
+        dojoNombre: nombre,
+        deUid: uid,
+        deNombre: perfil?.nombrePublico(DateTime.now()) ?? '',
+        paraUid: elegido.uid,
+        paraNombre: elegido.nombre,
+      );
+      mensajes.showSnackBar(
+          SnackBar(content: Text('Listo. Falta que ${elegido.nombre} acepte.')));
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Traspaso?>(
+      stream: DojosServicio().traspaso(dojoId),
+      builder: (context, snap) {
+        final t = snap.data;
+        if (t == null) {
+          return OutlinedButton.icon(
+            icon: const Icon(Icons.swap_horiz),
+            label: const Text('Traspasar dojo'),
+            onPressed: () => _proponer(context),
+          );
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Traspaso pendiente: esperando que ${t.paraNombre} acepte.'),
+          TextButton(
+            onPressed: () async {
+              final mensajes = ScaffoldMessenger.of(context);
+              try {
+                await DojosServicio().quitarTraspaso(dojoId);
+                mensajes.showSnackBar(const SnackBar(content: Text('Traspaso cancelado')));
+              } catch (e) {
+                mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+              }
+            },
+            child: const Text('Cancelar traspaso'),
+          ),
+        ]);
+      },
+    );
+  }
+}
+
+/// Para quien recibe un traspaso: aceptar o rechazar.
+class _TraspasoParaMi extends StatelessWidget {
+  const _TraspasoParaMi({required this.dojoId, required this.uid});
+
+  final String dojoId;
+  final String uid;
+
+  Future<void> _aceptar(BuildContext context, Traspaso t) async {
+    final mensajes = ScaffoldMessenger.of(context);
+    final perfil = await PerfilesServicio().leerMiPerfil(uid);
+    if (!context.mounted || perfil == null) return;
+    if (perfil.rol != Rol.entrenador && perfil.rol != Rol.ambos) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: const Text(
+              'Para recibir un dojo necesitas el rol "Entrenador" o "Atleta y entrenador". '
+              'Ve a Mi perfil → Editar perfil, cámbialo y vuelve aquí.'),
+          actions: [
+            FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(), child: const Text('Entendido')),
+          ],
+        ),
+      );
+      return;
+    }
+    final si = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Aceptar el dojo'),
+        content: Text(
+            'Quedarás como sensei a cargo de "${t.dojoNombre}": aceptarás solicitudes, '
+            'editarás el dojo y publicarás a su nombre. Sus torneos locales pasarán a ti.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Volver')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Aceptar')),
+        ],
+      ),
+    );
+    if (si != true) return;
+    mensajes.showSnackBar(const SnackBar(content: Text('Traspasando el dojo…')));
+    try {
+      await DojosServicio().aceptarTraspaso(t, uid, perfil.nombrePublico(DateTime.now()));
+      perfilCambiado.value++;
+      mensajes.showSnackBar(
+          SnackBar(content: Text('Ahora eres el sensei a cargo de ${t.dojoNombre} ✓')));
+    } catch (e) {
+      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Traspaso>>(
+      stream: DojosServicio().traspasosParaMi(uid),
+      builder: (context, snap) {
+        Traspaso? t;
+        for (final x in snap.data ?? const <Traspaso>[]) {
+          if (x.dojoId == dojoId) t = x;
+        }
+        if (t == null) return const SizedBox.shrink();
+        final traspaso = t;
+        return Card(
+          color: Theme.of(context).colorScheme.tertiaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('${traspaso.deNombre} quiere traspasarte este dojo.'),
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton(
+                  onPressed: () async {
+                    final mensajes = ScaffoldMessenger.of(context);
+                    try {
+                      await DojosServicio().quitarTraspaso(dojoId);
+                      mensajes.showSnackBar(
+                          const SnackBar(content: Text('Traspaso rechazado')));
+                    } catch (e) {
+                      mensajes.showSnackBar(SnackBar(content: Text(mensajeDeError(e))));
+                    }
+                  },
+                  child: const Text('Rechazar'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => _aceptar(context, traspaso),
+                  child: const Text('Aceptar'),
+                ),
+              ]),
+            ]),
+          ),
+        );
+      },
     );
   }
 }

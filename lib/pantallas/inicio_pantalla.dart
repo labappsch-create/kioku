@@ -15,6 +15,7 @@ import '../widgets/tarjeta_perfil.dart';
 import 'acerca_pantalla.dart';
 import 'notificaciones_pantalla.dart';
 import 'barra_acciones.dart';
+import 'borrar_cuenta_pantalla.dart';
 import 'admin/admin_pantalla.dart';
 import 'competencias/competencias_pantalla.dart';
 import 'dojos/dojos_pantalla.dart';
@@ -404,6 +405,17 @@ class MiPerfilPantalla extends StatelessWidget {
                   ),
                 )),
               ),
+              if (!esAdminPrincipal(FirebaseAuth.instance.currentUser?.email)) ...[
+                const SizedBox(height: 32),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Borrar mi cuenta'),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => BorrarCuentaPantalla(uid: uid, perfil: perfil))),
+                ),
+              ],
                   ],
                 ),
               ),
